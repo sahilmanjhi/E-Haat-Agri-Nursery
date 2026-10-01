@@ -85,15 +85,58 @@ export default function App() {
     }
   };
 
+  // Helper for human readable category section titles
+  const getCategoryTitle = (catKey) => {
+    if (!catKey || catKey === 'all') return 'All Bestselling Nursery Collection';
+    if (catKey === 'bestsellers') return 'Bestselling Nursery Collection';
+    if (catKey === 'air-purifying') return 'Air Purifying Plants Collection';
+    if (catKey === 'pet-friendly') return '100% Pet-Safe Houseplants';
+    if (catKey === 'low-light') return 'Low-Light Tolerant Plants';
+    if (catKey.includes(':')) {
+      const [cat, sub] = catKey.split(':');
+      const subLabels = {
+        'air-purifying': 'Air Purifying',
+        'low-light': 'Low Light',
+        'pet-friendly': 'Pet Safe',
+        'bestseller': 'Bestsellers',
+        'trending': 'Trending & Top Rated',
+        'easy-care': 'Easy Care & Low Maintenance',
+        'Bedroom': 'Bedroom Plants',
+        'Living Room': 'Living Room Plants',
+        'Balcony': 'Balcony & Terrace',
+        'Workspace': 'Office & Desk Plants',
+        'Desk': 'Desk Plants',
+        'Essential': 'Potting Mix & Essentials'
+      };
+      return `${cat} — ${subLabels[sub] || sub}`;
+    }
+    return catKey;
+  };
+
   // Filter & Sort Logic
   const filteredProducts = PRODUCTS.filter(p => {
-    if (activeCategory !== 'all' && p.category !== activeCategory) {
-      // Special shortcuts
-      if (activeCategory === 'low-light' && !p.light.toLowerCase().includes('low')) return false;
-      if (activeCategory === 'pet-friendly' && !p.petFriendly) return false;
-      if (activeCategory !== 'low-light' && activeCategory !== 'pet-friendly') return false;
+    if (!activeCategory || activeCategory === 'all') return true;
+
+    if (activeCategory === 'bestsellers') return p.tag === 'Bestseller' || p.rating >= 4.8;
+    if (activeCategory === 'air-purifying') return p.airPurifying;
+    if (activeCategory === 'pet-friendly') return p.petFriendly;
+    if (activeCategory === 'low-light') return p.light?.toLowerCase().includes('low');
+
+    if (activeCategory.includes(':')) {
+      const [cat, sub] = activeCategory.split(':');
+      if (cat !== 'all' && p.category !== cat) return false;
+      if (sub === 'air-purifying') return p.airPurifying;
+      if (sub === 'low-light') return p.light?.toLowerCase().includes('low');
+      if (sub === 'pet-friendly') return p.petFriendly;
+      if (sub === 'bestseller' || sub === 'bestsellers') return p.tag === 'Bestseller' || p.rating >= 4.8;
+      if (sub === 'trending') return p.tag === 'Trending' || p.tag === 'Top Rated';
+      if (sub === 'easy-care') return p.maintenance?.toLowerCase().includes('easy') || p.maintenance?.toLowerCase().includes('low') || p.maintenance?.toLowerCase().includes('zero') || p.category === 'Pots & Planters';
+      if (['Bedroom', 'Living Room', 'Balcony', 'Workspace', 'Desk'].includes(sub)) return p.room === sub;
+      if (p.tag === sub) return true;
+      return true;
     }
-    if (selectedRoom !== 'all' && p.room !== selectedRoom) return false;
+
+    if (p.category !== activeCategory) return false;
     return true;
   }).sort((a, b) => {
     if (sortBy === 'price-low') return a.price - b.price;
@@ -105,7 +148,7 @@ export default function App() {
   return (
     <div className="app-container">
       {/* 1. Main Header Navigation */}
-      <Header 
+      <Header
         activeCategory={activeCategory}
         setActiveCategory={setActiveCategory}
         cartCount={cartItems.reduce((acc, i) => acc + i.quantity, 0)}
@@ -128,11 +171,11 @@ export default function App() {
       {/* 5. Products Showcase */}
       <section className="products-section" id="products">
         <div className="container">
-          
+
           <div className="section-header">
             <div className="section-title-group">
               <h2>
-                {activeCategory === 'all' ? 'All Bestselling Nursery Collection' : activeCategory}
+                {getCategoryTitle(activeCategory)}
               </h2>
               <p>Showing {filteredProducts.length} healthy plants, seeds & planters ready to ship</p>
             </div>
@@ -140,7 +183,7 @@ export default function App() {
             {/* Sort Dropdown */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <span style={{ fontSize: '0.85rem', fontWeight: '700', color: '#64748B' }}>Sort By:</span>
-              <select 
+              <select
                 value={sortBy}
                 onChange={e => setSortBy(e.target.value)}
                 style={{
@@ -164,7 +207,7 @@ export default function App() {
           {/* Filter Chips Bar */}
           <div className="filter-bar">
             <div className="filter-chips">
-              <button 
+              <button
                 className={`chip-btn ${activeCategory === 'all' ? 'active' : ''}`}
                 onClick={() => setActiveCategory('all')}
               >
@@ -179,7 +222,7 @@ export default function App() {
                   {c.icon} {c.name}
                 </button>
               ))}
-              <button 
+              <button
                 className={`chip-btn ${activeCategory === 'pet-friendly' ? 'active' : ''}`}
                 onClick={() => setActiveCategory('pet-friendly')}
               >
@@ -191,7 +234,7 @@ export default function App() {
           {/* Product Grid */}
           <div className="products-grid">
             {filteredProducts.map(product => (
-              <ProductCard 
+              <ProductCard
                 key={product.id}
                 product={product}
                 onQuickView={(p) => setQuickViewProduct(p)}
@@ -234,7 +277,7 @@ export default function App() {
 
       {/* Modals & Slide-out Drawers */}
       {quickViewProduct && (
-        <ProductQuickViewModal 
+        <ProductQuickViewModal
           product={quickViewProduct}
           onClose={() => setQuickViewProduct(null)}
           onAddToCart={handleAddToCart}
@@ -243,7 +286,7 @@ export default function App() {
         />
       )}
 
-      <CartDrawer 
+      <CartDrawer
         isOpen={isCartOpen}
         onClose={() => setIsCartOpen(false)}
         cartItems={cartItems}
@@ -255,7 +298,7 @@ export default function App() {
         }}
       />
 
-      <WishlistDrawer 
+      <WishlistDrawer
         isOpen={isWishlistOpen}
         onClose={() => setIsWishlistOpen(false)}
         wishlistItems={wishlistItems}
@@ -263,14 +306,14 @@ export default function App() {
         onMoveToCart={(item) => handleAddToCart(item)}
       />
 
-      <PlantQuizModal 
+      <PlantQuizModal
         isOpen={isQuizOpen}
         onClose={() => setIsQuizOpen(false)}
         onAddToCart={handleAddToCart}
         onQuickView={(p) => setQuickViewProduct(p)}
       />
 
-      <CheckoutModal 
+      <CheckoutModal
         isOpen={isCheckoutOpen}
         onClose={() => setIsCheckoutOpen(false)}
         cartItems={cartItems}
