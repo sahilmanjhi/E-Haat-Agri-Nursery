@@ -65,15 +65,13 @@ export default function Footer({ onSelectCategory }) {
           <div className="footer-col">
             <div className="brand-logo" style={{ color: '#FFFFFF', marginBottom: '16px', gap: '12px' }}>
               <img
-                src="/images/itmu_ehaat_logo.png"
+                src="/images/itmu_ehaat_logo_bg.png"
                 alt="ITMU e-haat Logo"
                 style={{
                   height: '48px',
                   width: 'auto',
                   objectFit: 'contain',
                   display: 'block',
-                  background: '#FFF',
-                  padding: '4px',
                   borderRadius: '6px'
                 }}
               />

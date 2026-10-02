@@ -10,7 +10,7 @@ export default function GreenGifting({ onSelectCategory }) {
     }}>
       <div className="container">
         <div className="green-gifting-grid">
-          
+
           {/* Left Side Info */}
           <div>
             <h2 className="green-gifting-title" style={{
@@ -41,11 +41,11 @@ export default function GreenGifting({ onSelectCategory }) {
               color: '#063827',
               marginBottom: '32px'
             }}>
-              Bajaj, Mercedes, Tata, Sun Pharma & 50+ more brands
+              Naturally Grown • Carefully Selected • Freshly Delivered
             </div>
 
             <div className="green-gifting-actions">
-              <button 
+              <button
                 style={{
                   background: '#063827',
                   color: '#FFFFFF',
@@ -60,8 +60,8 @@ export default function GreenGifting({ onSelectCategory }) {
               >
                 Shop Hampers
               </button>
-              
-              <button 
+
+              <button
                 style={{
                   background: '#00B566',
                   color: '#FFFFFF',
@@ -81,10 +81,10 @@ export default function GreenGifting({ onSelectCategory }) {
 
           {/* Right Side Image */}
           <div style={{ position: 'relative', display: 'flex', justifyContent: 'center' }}>
-            <img 
+            <img
               className="green-gifting-img"
-              src="/images/green_gifting_hamper.jpg" 
-              alt="AgriMart Green Gifting Hamper Box" 
+              src="/images/green_gifting_hamper.jpg"
+              alt="AgriMart Green Gifting Hamper Box"
               style={{
                 width: '100%',
                 maxWidth: '520px',

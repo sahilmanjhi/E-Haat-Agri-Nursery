@@ -81,14 +81,14 @@ export default function OurStory() {
                 gap: '12px'
               }}>
                 <img
-                  src="/images/itmu_ehaat_logo.png"
+                  src="/images/itmu_ehaat_logo_bg.png"
                   alt="ITMU e-haat Logo"
                   style={{
                     height: '44px',
                     width: 'auto',
-                    background: 'transparent',
                     objectFit: 'contain',
-                    filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.2))'
+                    borderRadius: '6px',
+                    boxShadow: '0 2px 6px rgba(0,0,0,0.2)'
                   }}
                 />
                 <div>
