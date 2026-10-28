@@ -1,21 +1,23 @@
 import React, { useState } from 'react';
 import { X, CheckCircle, ShieldCheck, Truck, CreditCard, Smartphone, Banknote, Sparkles } from 'lucide-react';
 import confetti from 'canvas-confetti';
+import { submitOrder } from '../services/api';
 
 export default function CheckoutModal({ 
   isOpen, 
   onClose, 
   cartItems, 
   summary, 
-  onOrderSuccess 
+  onOrderSuccess,
+  user
 }) {
   if (!isOpen) return null;
 
   const [step, setStep] = useState(1); // 1: Address, 2: Payment, 3: Success Confirmation
   const [formData, setFormData] = useState({
-    name: 'Sahil Sharma',
-    phone: '9876543210',
-    email: 'sahil@example.com',
+    name: user?.first_name || 'Sahil Sharma',
+    phone: user?.phone_number || '9876543210',
+    email: user?.email || 'sahil@example.com',
     pincode: '400001',
     address: 'Flat 402, Green Meadows, Bandra West',
     city: 'Mumbai',
@@ -24,15 +26,56 @@ export default function CheckoutModal({
   });
 
   const [orderId, setOrderId] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handlePlaceOrder = (e) => {
+  const handlePlaceOrder = async (e) => {
     e.preventDefault();
-    const generatedId = 'AGRI-' + Math.floor(100000 + Math.random() * 900000);
-    setOrderId(generatedId);
+    setIsSubmitting(true);
+    let createdOrderId = 'EHAAT-' + Math.floor(100000 + Math.random() * 900000);
+    try {
+      const res = await submitOrder({
+        customer: formData,
+        items: cartItems,
+        total: summary?.finalTotal || 0,
+      });
+      if (res.orderId) createdOrderId = res.orderId;
+      setOrderId(createdOrderId);
+    } catch (err) {
+      setOrderId(createdOrderId);
+    } finally {
+      setIsSubmitting(false);
+    }
+
+    // Persist placed order to user's order history
+    try {
+      const userKey = user?.phone_number || user?.username || formData.phone || 'guest';
+      const existing = JSON.parse(localStorage.getItem(`ehaat_orders_${userKey}`) || '[]');
+      const newOrderRecord = {
+        id: createdOrderId,
+        date: 'Today, ' + new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }),
+        status: 'Order Placed',
+        statusColor: '#00B566',
+        statusBg: '#EBF5F0',
+        expectedDelivery: 'In 2-3 Days',
+        total: summary?.grandTotal || summary?.finalTotal || 0,
+        items: cartItems.map(item => ({
+          id: item.id,
+          name: item.name,
+          price: item.price,
+          quantity: item.quantity,
+          image: item.image,
+          pot: item.selectedPot?.name || ''
+        })),
+        deliveryAddress: `${formData.address}, ${formData.city}`,
+        paymentMethod: formData.paymentMethod.toUpperCase()
+      };
+      localStorage.setItem(`ehaat_orders_${userKey}`, JSON.stringify([newOrderRecord, ...existing]));
+    } catch (e) {}
+
     setStep(3);
 
     // Trigger confetti celebration!

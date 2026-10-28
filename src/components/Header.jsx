@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
   Search, Heart, ShoppingBag, MapPin, Sparkles,
-  ChevronDown, ChevronRight, X
+  ChevronDown, ChevronRight, X, User, LogOut, Package
 } from 'lucide-react';
 import { CATEGORIES, PRODUCTS } from '../data/products';
 import AnnouncementBar from './AnnouncementBar';
@@ -150,7 +150,11 @@ export default function Header({
   onOpenCart,
   onOpenWishlist,
   onOpenQuiz,
-  onSelectProduct
+  onSelectProduct,
+  user,
+  onOpenAuth,
+  onLogout,
+  onOpenOrders
 }) {
   const [pincode, setPincode] = useState('474001');
   const [showPincodeModal, setShowPincodeModal] = useState(false);
@@ -164,10 +168,19 @@ export default function Header({
   const hoverTimeoutRef = useRef(null);
   const navRef = useRef(null);
 
+  // User profile dropdown & logout confirmation
+  const [showUserDropdown, setShowUserDropdown] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const userMenuRef = useRef(null);
+
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (navRef.current && !navRef.current.contains(e.target)) {
         setOpenDropdown(null);
+      }
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target)) {
+        setShowUserDropdown(false);
+        setShowLogoutConfirm(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -351,7 +364,9 @@ export default function Header({
                           <img src={product.image} alt={product.name} />
                           <div>
                             <div style={{ fontWeight: '700', fontSize: '0.9rem', color: '#0A4C36' }}>{product.name}</div>
-                            <div style={{ fontSize: '0.75rem', color: '#64748B' }}>{product.category} • ₹{product.price}</div>
+                            <div style={{ fontSize: '0.75rem', color: '#64748B' }}>
+                              {product.category} • <strong style={{ color: '#0A4C36' }}>₹{product.price}</strong>
+                            </div>
                           </div>
                         </div>
                       ))
@@ -378,12 +393,128 @@ export default function Header({
                   <ChevronDown size={12} style={{ flexShrink: 0 }} />
                 </button>
 
-                {/* Actions: Quiz, Wishlist, Cart */}
+                {/* Actions: Quiz, Orders, Login/Account, Wishlist, Cart */}
                 <div className="header-actions">
                   <button className="quiz-pill-btn" onClick={onOpenQuiz}>
                     <Sparkles size={14} style={{ flexShrink: 0 }} />
                     <span className="quiz-btn-text">Plant Finder</span>
                   </button>
+
+                  {/* Orders Button */}
+                  <button 
+                    className="action-icon-btn header-orders-btn" 
+                    onClick={onOpenOrders} 
+                    title="My Orders & Tracking"
+                    id="header-orders-action-btn"
+                  >
+                    <Package size={18} style={{ flexShrink: 0 }} />
+                    <span>Orders</span>
+                  </button>
+
+                  {/* Login / Account Button with Minimal Dropdown Menu */}
+                  {user ? (
+                    <div className="header-user-menu" ref={userMenuRef}>
+                      <button
+                        className={`minimal-user-profile-btn ${showUserDropdown ? 'active' : ''}`}
+                        onClick={() => {
+                          setShowUserDropdown(!showUserDropdown);
+                          setShowLogoutConfirm(false);
+                        }}
+                        title="Account Menu"
+                        aria-expanded={showUserDropdown}
+                        id="user-account-menu-btn"
+                        type="button"
+                      >
+                        <User size={18} className="minimal-user-icon" />
+                        <span className="minimal-user-name">{user.first_name || user.username}</span>
+                        <ChevronDown 
+                          size={14} 
+                          className="minimal-chevron-icon"
+                          style={{
+                            transform: showUserDropdown ? 'rotate(180deg)' : 'rotate(0deg)'
+                          }} 
+                        />
+                      </button>
+
+                      {/* Dropdown Menu Popover */}
+                      {showUserDropdown && (
+                        <div className="minimal-profile-dropdown" role="menu">
+                          {!showLogoutConfirm ? (
+                            <>
+                              <button
+                                type="button"
+                                className="minimal-dropdown-item"
+                                onClick={() => setShowUserDropdown(false)}
+                                role="menuitem"
+                                id="user-menu-profile-btn"
+                              >
+                                <User size={15} style={{ color: '#245C45' }} />
+                                <span>My Profile</span>
+                              </button>
+                              
+                              <button
+                                type="button"
+                                className="minimal-dropdown-item"
+                                onClick={() => {
+                                  setShowUserDropdown(false);
+                                  if (onOpenOrders) onOpenOrders();
+                                }}
+                                role="menuitem"
+                                id="user-menu-orders-btn"
+                              >
+                                <Package size={15} style={{ color: '#245C45' }} />
+                                <span>My Orders</span>
+                              </button>
+
+                              <div className="minimal-dropdown-divider" />
+
+                              <button
+                                type="button"
+                                className="minimal-dropdown-item logout-option"
+                                onClick={() => setShowLogoutConfirm(true)}
+                                role="menuitem"
+                                id="user-logout-option-btn"
+                              >
+                                <LogOut size={15} />
+                                <span>Logout</span>
+                              </button>
+                            </>
+                          ) : (
+                            <div className="minimal-logout-confirm">
+                              <p className="minimal-confirm-title">Are you sure you want to log out?</p>
+                              <div className="minimal-confirm-actions">
+                                <button
+                                  type="button"
+                                  className="minimal-confirm-cancel-btn"
+                                  onClick={() => setShowLogoutConfirm(false)}
+                                  id="confirm-logout-cancel-btn"
+                                >
+                                  Cancel
+                                </button>
+                                <button
+                                  type="button"
+                                  className="minimal-confirm-logout-btn"
+                                  onClick={() => {
+                                    setShowUserDropdown(false);
+                                    setShowLogoutConfirm(false);
+                                    onLogout();
+                                  }}
+                                  id="confirm-logout-action-btn"
+                                >
+                                  Confirm
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <button className="login-header-btn" onClick={onOpenAuth} title="Login / Register">
+                      <User size={18} style={{ flexShrink: 0 }} />
+                      <span>Login</span>
+                    </button>
+                  )}
 
                   <button className="action-icon-btn" onClick={onOpenWishlist} title="Wishlist">
                     <Heart size={18} style={{ flexShrink: 0 }} />

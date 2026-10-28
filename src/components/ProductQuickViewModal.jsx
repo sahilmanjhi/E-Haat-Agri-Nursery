@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { X, Star, Sun, Droplets, ShieldCheck, Heart, ShoppingBag, Truck, Award, Check } from 'lucide-react';
+import { X, Star, Sun, Droplets, ShieldCheck, Heart, ShoppingBag, Truck, Award, Check, Lock } from 'lucide-react';
 
 export default function ProductQuickViewModal({ 
   product, 
   onClose, 
   onAddToCart, 
   isWishlisted, 
-  onToggleWishlist 
+  onToggleWishlist,
+  user,
+  onOpenAuth
 }) {
   if (!product) return null;
 

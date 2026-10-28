@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Mail, ArrowRight, ShieldCheck, Phone, MapPin, Check } from 'lucide-react';
 
-export default function Footer({ onSelectCategory }) {
+export default function Footer({ onSelectCategory, onOpenOrders }) {
   const [email, setEmail] = useState('');
   const [subscribed, setSubscribed] = useState(false);
 
@@ -99,8 +99,8 @@ export default function Footer({ onSelectCategory }) {
               <li style={{ cursor: 'pointer' }} onClick={() => onSelectCategory('Indoor Plants')}>Indoor Plants</li>
               <li style={{ cursor: 'pointer' }} onClick={() => onSelectCategory('Outdoor Plants')}>Outdoor Plants</li>
               <li style={{ cursor: 'pointer' }} onClick={() => onSelectCategory('Flowering Plants')}>Flowering Plants</li>
-              <li style={{ cursor: 'pointer' }} onClick={() => onSelectCategory('Seeds')}>Vegetable & Herb Seeds</li>
-              <li style={{ cursor: 'pointer' }} onClick={() => onSelectCategory('Pots & Planters')}>Self-Watering Pots</li>
+              <li style={{ cursor: 'pointer' }} onClick={() => onSelectCategory('Seeds')}>Vegetable &amp; Herb Seeds</li>
+              <li style={{ cursor: 'pointer' }} onClick={() => onSelectCategory('Pots &amp; Planters')}>Self-Watering Pots</li>
               <li style={{ cursor: 'pointer' }} onClick={() => onSelectCategory('Plant Care')}>Organic Potting Soil</li>
             </ul>
           </div>
@@ -108,7 +108,9 @@ export default function Footer({ onSelectCategory }) {
           <div className="footer-col">
             <h4>Customer Support</h4>
             <ul>
-              <li>Track Your Order</li>
+              <li style={{ cursor: 'pointer', color: '#FED02F', fontWeight: '700' }} onClick={() => onOpenOrders && onOpenOrders()}>
+                📦 Track Your Order / My Orders
+              </li>
               <li>7-Day Plant Guarantee</li>
               <li>Shipping & Delivery Policy</li>
               <li>Return & Refund Policy</li>

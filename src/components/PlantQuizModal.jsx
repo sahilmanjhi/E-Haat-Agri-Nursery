@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { X, Sparkles, Sun, Home, ShieldCheck, HeartHandshake, CheckCircle2 } from 'lucide-react';
 import { PRODUCTS } from '../data/products';
 
-export default function PlantQuizModal({ isOpen, onClose, onAddToCart, onQuickView }) {
+export default function PlantQuizModal({ isOpen, onClose, onAddToCart, onQuickView, user, onOpenAuth }) {
   if (!isOpen) return null;
 
   const [step, setStep] = useState(1);
@@ -203,7 +203,9 @@ export default function PlantQuizModal({ isOpen, onClose, onAddToCart, onQuickVi
                   />
                   <div style={{ flex: 1 }}>
                     <div style={{ fontWeight: '700', color: '#0A4C36', fontSize: '0.95rem' }}>{product.name}</div>
-                    <div style={{ fontSize: '0.75rem', color: '#64748B' }}>{product.light} • ₹{product.price}</div>
+                    <div style={{ fontSize: '0.75rem', color: '#64748B' }}>
+                      {product.light} • <strong style={{ color: '#0A4C36' }}>₹{product.price}</strong>
+                    </div>
                   </div>
                   <button 
                     className="add-cart-btn"

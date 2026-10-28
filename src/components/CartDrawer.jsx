@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Trash2, ShoppingBag, ArrowRight, Tag, ShieldCheck, Sparkles } from 'lucide-react';
+import { X, Trash2, ShoppingBag, ArrowRight, Tag, ShieldCheck, Sparkles, Lock } from 'lucide-react';
 
 export default function CartDrawer({ 
   isOpen, 
@@ -7,7 +7,9 @@ export default function CartDrawer({
   cartItems, 
   onUpdateQty, 
   onRemoveItem, 
-  onProceedToCheckout 
+  onProceedToCheckout,
+  user,
+  onOpenAuth
 }) {
   const [couponCode, setCouponCode] = useState('');
   const [appliedCoupon, setAppliedCoupon] = useState(null);
@@ -169,16 +171,31 @@ export default function CartDrawer({
               <span>₹{grandTotal}</span>
             </div>
 
-            <button 
-              className="checkout-btn"
-              onClick={() => {
-                onProceedToCheckout({ subtotal, discountAmount, shippingCost, grandTotal, appliedCoupon });
-                onClose();
-              }}
-            >
-              <span>Proceed to Checkout</span>
-              <ArrowRight size={18} />
-            </button>
+            {user ? (
+              <button 
+                className="checkout-btn"
+                onClick={() => {
+                  onProceedToCheckout({ subtotal, discountAmount, shippingCost, grandTotal, appliedCoupon });
+                  onClose();
+                }}
+              >
+                <span>Proceed to Checkout • ₹{grandTotal}</span>
+                <ArrowRight size={18} />
+              </button>
+            ) : (
+              <button
+                className="checkout-btn"
+                onClick={() => {
+                  onProceedToCheckout({ subtotal, discountAmount, shippingCost, grandTotal, appliedCoupon });
+                }}
+                style={{ background: '#0A4C36' }}
+                title="Login with mobile number to place order"
+              >
+                <Lock size={18} />
+                <span>Login with Mobile to Order • ₹{grandTotal}</span>
+                <ArrowRight size={18} />
+              </button>
+            )}
 
             <div style={{
               display: 'flex',

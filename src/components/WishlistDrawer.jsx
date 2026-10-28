@@ -6,7 +6,9 @@ export default function WishlistDrawer({
   onClose, 
   wishlistItems, 
   onRemoveWishlist, 
-  onMoveToCart 
+  onMoveToCart,
+  user,
+  onOpenAuth
 }) {
   return (
     <div className={`cart-drawer-overlay ${isOpen ? 'open' : ''}`} onClick={onClose}>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Header from './components/Header';
 import HeroBanner from './components/HeroBanner';
 import CategoryCircles from './components/CategoryCircles';
@@ -8,22 +8,32 @@ import CartDrawer from './components/CartDrawer';
 import CheckoutModal from './components/CheckoutModal';
 import PlantQuizModal from './components/PlantQuizModal';
 import WishlistDrawer from './components/WishlistDrawer';
+import AuthModal from './components/AuthModal';
+import OrdersModal from './components/OrdersModal';
 import WhyChooseUs from './components/WhyChooseUs';
 import CustomerReviews from './components/CustomerReviews';
 import PlantDoctorFAQ from './components/PlantDoctorFAQ';
 import Footer from './components/Footer';
 import FloatingWhatsApp from './components/FloatingWhatsApp';
 
-// 5 Main Landing Sections from Ugaoo Layout
+// 5 Main Landing Sections 
 import FarmToHome from './components/FarmToHome';
 import TransformHome from './components/TransformHome';
 import GreenGifting from './components/GreenGifting';
 import OurStory from './components/OurStory';
 import PlantCareSimplified from './components/PlantCareSimplified';
+import PromoBanner from './components/PromoBanner';
+import ProductCollections from './components/ProductCollections';
 
-import { PRODUCTS, CATEGORIES } from './data/products';
+import { PRODUCTS as DEFAULT_PRODUCTS, CATEGORIES as DEFAULT_CATEGORIES } from './data/products';
+import { fetchProducts, fetchCategories, checkBackendHealth, fetchCurrentUser, logoutUser } from './services/api';
 
 export default function App() {
+  const [products, setProducts] = useState(DEFAULT_PRODUCTS);
+  const [categories, setCategories] = useState(DEFAULT_CATEGORIES);
+  const [backendStatus, setBackendStatus] = useState({ connected: false, message: 'Connecting to Django...' });
+  const [isLoading, setIsLoading] = useState(true);
+
   const [activeCategory, setActiveCategory] = useState('all');
   const [sortBy, setSortBy] = useState('popular');
   const [selectedRoom, setSelectedRoom] = useState('all');
@@ -37,6 +47,53 @@ export default function App() {
   const [isQuizOpen, setIsQuizOpen] = useState(false);
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [checkoutSummary, setCheckoutSummary] = useState(null);
+
+  // Auth state
+  const [currentUser, setCurrentUser] = useState(null);
+  const [isAuthOpen, setIsAuthOpen] = useState(false);
+  const [isOrdersOpen, setIsOrdersOpen] = useState(false);
+
+  const handleOpenOrders = () => {
+    if (!currentUser) {
+      setIsAuthOpen(true);
+    } else {
+      setIsOrdersOpen(true);
+    }
+  };
+
+  // Fetch live products & categories from Django backend
+  useEffect(() => {
+    async function loadData() {
+      try {
+        const health = await checkBackendHealth();
+        setBackendStatus(health);
+
+        const [cats, prods] = await Promise.all([
+          fetchCategories(),
+          fetchProducts()
+        ]);
+        if (cats && cats.length > 0) setCategories(cats);
+        if (prods && prods.length > 0) setProducts(prods);
+      } catch (err) {
+        console.warn('Backend load error:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    loadData();
+  }, []);
+
+  // Check if user is already logged in (session cookie)
+  useEffect(() => {
+    fetchCurrentUser().then(user => {
+      if (user) setCurrentUser(user);
+    });
+  }, []);
+
+  const handleLogout = async () => {
+    await logoutUser();
+    setCurrentUser(null);
+  };
 
   // Cart operations
   const handleAddToCart = (product, pot = null, size = null, qty = 1) => {
@@ -114,7 +171,7 @@ export default function App() {
   };
 
   // Filter & Sort Logic
-  const filteredProducts = PRODUCTS.filter(p => {
+  const filteredProducts = products.filter(p => {
     if (!activeCategory || activeCategory === 'all') return true;
 
     if (activeCategory === 'bestsellers') return p.tag === 'Bestseller' || p.rating >= 4.8;
@@ -157,18 +214,37 @@ export default function App() {
         onOpenWishlist={() => setIsWishlistOpen(true)}
         onOpenQuiz={() => setIsQuizOpen(true)}
         onSelectProduct={(p) => setQuickViewProduct(p)}
+        user={currentUser}
+        onOpenAuth={() => setIsAuthOpen(true)}
+        onLogout={handleLogout}
+        onOpenOrders={handleOpenOrders}
       />
 
-      {/* 2. Hero Slideshow Carousel */}
+      {/* 2. Ugaoo-Inspired Hero Section */}
       <HeroBanner onExploreCategory={(cat) => setActiveCategory(cat)} />
 
-      {/* 3. Circular Visual Category Bar */}
+      {/* 3. Shop by Category (6 photo cards) */}
       <CategoryCircles onSelectCategory={(cat) => setActiveCategory(cat)} />
 
-      {/* 4. Section: From Our Farm to Your Home */}
+      {/* 4. Promotional Banners */}
+      <PromoBanner onExploreCategory={(cat) => setActiveCategory(cat)} />
+
+      {/* 5. Product Collections (Best Sellers, Trending Plants, New Arrivals, Seeds & Essentials) */}
+      <ProductCollections
+        products={products}
+        onQuickView={(p) => setQuickViewProduct(p)}
+        onAddToCart={handleAddToCart}
+        wishlistItems={wishlistItems}
+        onToggleWishlist={handleToggleWishlist}
+        onViewAll={(cat) => setActiveCategory(cat)}
+        user={currentUser}
+        onOpenAuth={() => setIsAuthOpen(true)}
+      />
+
+      {/* 6. Section: From Our Farm to Your Home */}
       <FarmToHome />
 
-      {/* 5. Products Showcase */}
+      {/* 7. Filterable Products Showcase */}
       <section className="products-section" id="products">
         <div className="container">
 
@@ -213,13 +289,13 @@ export default function App() {
               >
                 All Plants
               </button>
-              {CATEGORIES.filter(c => c.id !== 'all').map(c => (
+              {categories.filter(c => c.id !== 'all').map(c => (
                 <button
                   key={c.id}
                   className={`chip-btn ${activeCategory === c.id ? 'active' : ''}`}
                   onClick={() => setActiveCategory(c.id)}
                 >
-                  {c.icon} {c.name}
+                  {c.icon || '🌿'} {c.name}
                 </button>
               ))}
               <button
@@ -241,6 +317,8 @@ export default function App() {
                 onAddToCart={(p, pot) => handleAddToCart(p, pot)}
                 isWishlisted={wishlistItems.some(i => i.id === product.id)}
                 onToggleWishlist={(p) => handleToggleWishlist(p)}
+                user={currentUser}
+                onOpenAuth={() => setIsAuthOpen(true)}
               />
             ))}
           </div>
@@ -270,7 +348,7 @@ export default function App() {
       <PlantDoctorFAQ />
 
       {/* 13. Footer */}
-      <Footer onSelectCategory={(cat) => setActiveCategory(cat)} />
+      <Footer onSelectCategory={(cat) => setActiveCategory(cat)} onOpenOrders={handleOpenOrders} />
 
       {/* 14. Floating WhatsApp Chat Widget */}
       <FloatingWhatsApp />
@@ -283,6 +361,8 @@ export default function App() {
           onAddToCart={handleAddToCart}
           isWishlisted={wishlistItems.some(i => i.id === quickViewProduct.id)}
           onToggleWishlist={handleToggleWishlist}
+          user={currentUser}
+          onOpenAuth={() => setIsAuthOpen(true)}
         />
       )}
 
@@ -292,9 +372,15 @@ export default function App() {
         cartItems={cartItems}
         onUpdateQty={handleUpdateCartQty}
         onRemoveItem={handleRemoveCartItem}
+        user={currentUser}
+        onOpenAuth={() => setIsAuthOpen(true)}
         onProceedToCheckout={(summary) => {
           setCheckoutSummary(summary);
-          setIsCheckoutOpen(true);
+          if (!currentUser) {
+            setIsAuthOpen(true);
+          } else {
+            setIsCheckoutOpen(true);
+          }
         }}
       />
 
@@ -304,6 +390,8 @@ export default function App() {
         wishlistItems={wishlistItems}
         onRemoveWishlist={(item) => setWishlistItems(wishlistItems.filter(i => i.id !== item.id))}
         onMoveToCart={(item) => handleAddToCart(item)}
+        user={currentUser}
+        onOpenAuth={() => setIsAuthOpen(true)}
       />
 
       <PlantQuizModal
@@ -311,14 +399,44 @@ export default function App() {
         onClose={() => setIsQuizOpen(false)}
         onAddToCart={handleAddToCart}
         onQuickView={(p) => setQuickViewProduct(p)}
+        user={currentUser}
+        onOpenAuth={() => setIsAuthOpen(true)}
       />
 
       <CheckoutModal
         isOpen={isCheckoutOpen}
-        onClose={() => setIsCheckoutOpen(false)}
+        onClose={() => {
+          setIsCheckoutOpen(false);
+          setCheckoutSummary(null);
+        }}
         cartItems={cartItems}
         summary={checkoutSummary}
-        onOrderSuccess={() => setCartItems([])}
+        onOrderSuccess={() => {
+          setCartItems([]);
+          setCheckoutSummary(null);
+        }}
+        user={currentUser}
+      />
+
+      <AuthModal
+        isOpen={isAuthOpen}
+        onClose={() => setIsAuthOpen(false)}
+        onLoginSuccess={(user) => {
+          setCurrentUser(user);
+          // If the user had initiated checkout before logging in, resume directly to checkout
+          if (checkoutSummary) {
+            setIsCartOpen(false);
+            setIsCheckoutOpen(true);
+          }
+        }}
+      />
+
+      {/* Order Tracking & History Modal */}
+      <OrdersModal
+        isOpen={isOrdersOpen}
+        onClose={() => setIsOrdersOpen(false)}
+        user={currentUser}
+        onOpenAuth={() => setIsAuthOpen(true)}
       />
     </div>
   );

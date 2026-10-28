@@ -1,12 +1,14 @@
 import React from 'react';
-import { Heart, Star, ShoppingBag, Eye, Sun, Droplets, ShieldAlert } from 'lucide-react';
+import { Heart, Star, ShoppingBag, Eye, Sun, Droplets, ShieldAlert, Lock } from 'lucide-react';
 
 export default function ProductCard({ 
   product, 
   onQuickView, 
   onAddToCart, 
   isWishlisted, 
-  onToggleWishlist 
+  onToggleWishlist,
+  user,
+  onOpenAuth
 }) {
   return (
     <div className="product-card">
@@ -123,6 +125,7 @@ export default function ProductCard({
           <button 
             className="add-cart-btn"
             onClick={() => onAddToCart(product, product.potOptions ? product.potOptions[0] : null)}
+            title="Add to Cart"
           >
             <ShoppingBag size={16} />
             <span>Add</span>
