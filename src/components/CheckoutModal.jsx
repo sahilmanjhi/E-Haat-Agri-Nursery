@@ -11,8 +11,6 @@ export default function CheckoutModal({
   onOrderSuccess,
   user
 }) {
-  if (!isOpen) return null;
-
   const [step, setStep] = useState(1); // 1: Address, 2: Payment, 3: Success Confirmation
   const [formData, setFormData] = useState({
     name: user?.first_name || 'Sahil Sharma',
@@ -27,6 +25,9 @@ export default function CheckoutModal({
 
   const [orderId, setOrderId] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  if (!isOpen) return null;
+
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });

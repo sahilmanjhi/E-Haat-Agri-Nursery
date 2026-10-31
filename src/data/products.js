@@ -402,14 +402,11 @@ export const PRODUCTS = [
 ];
 
 export const CATEGORIES = [
-  { id: "all", name: "All Products", },
+  { id: "all", name: "All Products" },
   { id: "Indoor Plants", name: "Indoor Plants" },
-  { id: "Outdoor Plants", name: "Outdoor Plants" },
-  { id: "Flowering Plants", name: "Flowering Plants" },
-  { id: "Seeds", name: "Seeds & Microgreens" },
-  { id: "Pots & Planters", name: "Pots & Planters" },
-  { id: "Plant Care", name: "Plant Care & Soil" },
-  { id: "Gifting & Combos", name: "Gifting & Combos", }
+  { id: "Flowers", name: "Flowers" },
+  { id: "Fruits Plants", name: "Fruits Plants" },
+  { id: "Vegetables Crops", name: "Vegetables Crops" }
 ];
 
 export const CATEGORY_CIRCLES = [
@@ -420,40 +417,22 @@ export const CATEGORY_CIRCLES = [
     img: "/images/categories/indoor_plants.jpg"
   },
   {
-    id: "Seeds",
-    label: "Seeds",
-    badge: "Buy 2 Get 1",
-    img: "/images/categories/seeds.jpg"
+    id: "Flowers",
+    label: "Flowers",
+    badge: "Fresh Blooms",
+    img: "/images/plants/peace_lily.png"
   },
   {
-    id: "Pots & Planters",
-    label: "Planters",
-    badge: "New Arrival",
-    img: "/images/categories/planters.jpg"
+    id: "Fruits Plants",
+    label: "Fruits Plants",
+    badge: "Terrace Garden",
+    img: "/images/plants/areca_palm.jpg"
   },
   {
-    id: "Plant Care",
-    label: "Fertilizers",
-    badge: "Organic",
-    img: "/images/categories/fertilizers.jpg"
-  },
-  {
-    id: "Gifting & Combos",
-    label: "Gifting",
-    badge: "Housewarming",
-    img: "/images/categories/gifting.jpg"
-  },
-  {
-    id: "low-light",
-    label: "Low Light",
-    badge: "Bedroom",
-    img: "/images/categories/low_light.jpg"
-  },
-  {
-    id: "pet-friendly",
-    label: "Pet Safe",
-    badge: "100% Safe",
-    img: "/images/categories/pet_safe.jpg"
+    id: "Vegetables Crops",
+    label: "Vegetables Crops",
+    badge: "Kitchen Garden",
+    img: "/images/plants/heirloom_seeds.jpg"
   }
 ];
 

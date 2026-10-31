@@ -15,6 +15,15 @@ import CustomerReviews from './components/CustomerReviews';
 import PlantDoctorFAQ from './components/PlantDoctorFAQ';
 import Footer from './components/Footer';
 import FloatingWhatsApp from './components/FloatingWhatsApp';
+import AdminLogin from './components/AdminLogin';
+import AdminDashboard from './components/AdminDashboard';
+import AdminProductsList from './components/AdminProductsList';
+import AdminProductForm from './components/AdminProductForm';
+import AdminCategoriesList from './components/AdminCategoriesList';
+import AdminInventory from './components/AdminInventory';
+import AdminOrders from './components/AdminOrders';
+import AdminCustomers from './components/AdminCustomers';
+
 
 // 5 Main Landing Sections 
 import FarmToHome from './components/FarmToHome';
@@ -52,6 +61,18 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState(null);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [isOrdersOpen, setIsOrdersOpen] = useState(false);
+
+  // Path-based routing for Admin portal
+  const [currentPath, setCurrentPath] = useState(window.location.pathname);
+
+  useEffect(() => {
+    const handlePopState = () => {
+      setCurrentPath(window.location.pathname);
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
 
   const handleOpenOrders = () => {
     if (!currentUser) {
@@ -202,8 +223,127 @@ export default function App() {
     return b.reviewsCount - a.reviewsCount; // popular
   });
 
+  const navigate = (path) => {
+    window.history.pushState({}, '', path);
+    setCurrentPath(path);
+  };
+
+  // Dedicated route for Admin Login Page
+  if (currentPath === '/admin/login' || currentPath === '/admin/login/') {
+    return (
+      <AdminLogin
+        onLoginSuccess={() => {
+          navigate('/admin/dashboard');
+        }}
+      />
+    );
+  }
+
+  // Route for Admin Dashboard Overview
+  if (currentPath === '/admin/dashboard' || currentPath === '/admin/dashboard/') {
+    return (
+      <AdminDashboard
+        onNavigate={navigate}
+        onLogout={() => {
+          navigate('/admin/login');
+        }}
+      />
+    );
+  }
+
+  // Route for Product Management List (/admin/products)
+  if (currentPath === '/admin/products' || currentPath === '/admin/products/') {
+    return (
+      <AdminProductsList
+        onNavigate={navigate}
+        onLogout={() => {
+          navigate('/admin/login');
+        }}
+      />
+    );
+  }
+
+  // Route for Category Management (/admin/categories)
+  if (currentPath.startsWith('/admin/categories')) {
+    return (
+      <AdminCategoriesList
+        onNavigate={navigate}
+        onLogout={() => {
+          navigate('/admin/login');
+        }}
+      />
+    );
+  }
+
+  // Route for Inventory Management (/admin/inventory)
+  if (currentPath === '/admin/inventory' || currentPath.startsWith('/admin/inventory')) {
+    return (
+      <AdminInventory
+        onNavigate={navigate}
+        onLogout={() => {
+          navigate('/admin/login');
+        }}
+      />
+    );
+  }
+
+  // Route for Order Management (/admin/orders)
+  if (currentPath === '/admin/orders' || currentPath.startsWith('/admin/orders')) {
+    return (
+      <AdminOrders
+        onNavigate={navigate}
+        onLogout={() => {
+          navigate('/admin/login');
+        }}
+      />
+    );
+  }
+
+  // Route for Customer Management (/admin/customers)
+  if (currentPath === '/admin/customers' || currentPath.startsWith('/admin/customers')) {
+    return (
+      <AdminCustomers
+        onNavigate={navigate}
+        onLogout={() => {
+          navigate('/admin/login');
+        }}
+      />
+    );
+  }
+
+
+
+  // Route for Add New Product (/admin/products/create)
+  if (currentPath === '/admin/products/create' || currentPath === '/admin/products/create/') {
+    return (
+      <AdminProductForm
+        productId={null}
+        onNavigate={navigate}
+        onLogout={() => {
+          navigate('/admin/login');
+        }}
+      />
+    );
+  }
+
+  // Route for Edit Product (/admin/products/edit/:id or /admin/products/:id/edit)
+  const editMatch = currentPath.match(/^\/admin\/products\/(?:edit\/(\d+)|(\d+)\/edit)\/?$/);
+  if (editMatch) {
+    const editId = editMatch[1] || editMatch[2];
+    return (
+      <AdminProductForm
+        productId={editId}
+        onNavigate={navigate}
+        onLogout={() => {
+          navigate('/admin/login');
+        }}
+      />
+    );
+  }
+
   return (
     <div className="app-container">
+
       {/* 1. Main Header Navigation */}
       <Header
         activeCategory={activeCategory}
@@ -244,87 +384,108 @@ export default function App() {
       {/* 6. Section: From Our Farm to Your Home */}
       <FarmToHome />
 
-      {/* 7. Filterable Products Showcase */}
-      <section className="products-section" id="products">
-        <div className="container">
+      {/* 7. Filterable Products Showcase - Only displayed when a category is actively filtered */}
+      {activeCategory && activeCategory !== 'all' && (
+        <section className="products-section" id="products">
+          <div className="container">
 
-          <div className="section-header">
-            <div className="section-title-group">
-              <h2>
-                {getCategoryTitle(activeCategory)}
-              </h2>
-              <p>Showing {filteredProducts.length} healthy plants, seeds & planters ready to ship</p>
-            </div>
+            <div className="section-header">
+              <div className="section-title-group">
+                <h2>
+                  {getCategoryTitle(activeCategory)}
+                </h2>
+                <p>Showing {filteredProducts.length} healthy {filteredProducts.length === 1 ? 'variety' : 'varieties'} in this category</p>
+              </div>
 
-            {/* Sort Dropdown */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontSize: '0.85rem', fontWeight: '700', color: '#64748B' }}>Sort By:</span>
-              <select
-                value={sortBy}
-                onChange={e => setSortBy(e.target.value)}
-                style={{
-                  padding: '8px 14px',
-                  borderRadius: '8px',
-                  border: '1.5px solid #CADFD4',
-                  fontSize: '0.85rem',
-                  fontWeight: '700',
-                  color: '#0A4C36',
-                  background: '#FFFFFF'
-                }}
-              >
-                <option value="popular">Most Popular</option>
-                <option value="rating">Highest Rated ★</option>
-                <option value="price-low">Price: Low to High</option>
-                <option value="price-high">Price: High to Low</option>
-              </select>
-            </div>
-          </div>
-
-          {/* Filter Chips Bar */}
-          <div className="filter-bar">
-            <div className="filter-chips">
-              <button
-                className={`chip-btn ${activeCategory === 'all' ? 'active' : ''}`}
-                onClick={() => setActiveCategory('all')}
-              >
-                All Plants
-              </button>
-              {categories.filter(c => c.id !== 'all').map(c => (
+              {/* Sort Dropdown & Clear Filter */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
                 <button
-                  key={c.id}
-                  className={`chip-btn ${activeCategory === c.id ? 'active' : ''}`}
-                  onClick={() => setActiveCategory(c.id)}
+                  type="button"
+                  onClick={() => setActiveCategory('all')}
+                  style={{
+                    padding: '8px 14px',
+                    borderRadius: '8px',
+                    border: '1.5px solid #CADFD4',
+                    background: '#EBF5F0',
+                    color: '#0A4C36',
+                    fontSize: '0.82rem',
+                    fontWeight: '700',
+                    cursor: 'pointer'
+                  }}
                 >
-                  {c.icon || '🌿'} {c.name}
+                  ✕ Clear Filter
                 </button>
-              ))}
-              <button
-                className={`chip-btn ${activeCategory === 'pet-friendly' ? 'active' : ''}`}
-                onClick={() => setActiveCategory('pet-friendly')}
-              >
-                🐾 100% Pet Safe
-              </button>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontSize: '0.85rem', fontWeight: '700', color: '#64748B' }}>Sort By:</span>
+                  <select
+                    value={sortBy}
+                    onChange={e => setSortBy(e.target.value)}
+                    style={{
+                      padding: '8px 14px',
+                      borderRadius: '8px',
+                      border: '1.5px solid #CADFD4',
+                      fontSize: '0.85rem',
+                      fontWeight: '700',
+                      color: '#0A4C36',
+                      background: '#FFFFFF'
+                    }}
+                  >
+                    <option value="popular">Most Popular</option>
+                    <option value="rating">Highest Rated ★</option>
+                    <option value="price-low">Price: Low to High</option>
+                    <option value="price-high">Price: High to Low</option>
+                  </select>
+                </div>
+              </div>
             </div>
-          </div>
 
-          {/* Product Grid */}
-          <div className="products-grid">
-            {filteredProducts.map(product => (
-              <ProductCard
-                key={product.id}
-                product={product}
-                onQuickView={(p) => setQuickViewProduct(p)}
-                onAddToCart={(p, pot) => handleAddToCart(p, pot)}
-                isWishlisted={wishlistItems.some(i => i.id === product.id)}
-                onToggleWishlist={(p) => handleToggleWishlist(p)}
-                user={currentUser}
-                onOpenAuth={() => setIsAuthOpen(true)}
-              />
-            ))}
-          </div>
+            {/* Filter Chips Bar */}
+            <div className="filter-bar">
+              <div className="filter-chips">
+                <button
+                  className="chip-btn"
+                  onClick={() => setActiveCategory('all')}
+                >
+                  ✕ Back to Home
+                </button>
+                {categories.filter(c => c.id !== 'all').map(c => (
+                  <button
+                    key={c.id}
+                    className={`chip-btn ${activeCategory === c.id ? 'active' : ''}`}
+                    onClick={() => setActiveCategory(c.id)}
+                  >
+                    {c.icon || '🌿'} {c.name}
+                  </button>
+                ))}
+                <button
+                  className={`chip-btn ${activeCategory === 'pet-friendly' ? 'active' : ''}`}
+                  onClick={() => setActiveCategory('pet-friendly')}
+                >
+                  🐾 100% Pet Safe
+                </button>
+              </div>
+            </div>
 
-        </div>
-      </section>
+            {/* Product Grid */}
+            <div className="products-grid">
+              {filteredProducts.map(product => (
+                <ProductCard
+                  key={product.id}
+                  product={product}
+                  onQuickView={(p) => setQuickViewProduct(p)}
+                  onAddToCart={(p, pot) => handleAddToCart(p, pot)}
+                  isWishlisted={wishlistItems.some(i => i.id === product.id)}
+                  onToggleWishlist={(p) => handleToggleWishlist(p)}
+                  user={currentUser}
+                  onOpenAuth={() => setIsAuthOpen(true)}
+                />
+              ))}
+            </div>
+
+          </div>
+        </section>
+      )}
 
       {/* 6. Section: Transform Your Home (Shop by Room) */}
       <TransformHome onSelectCategory={(cat) => setActiveCategory(cat)} />

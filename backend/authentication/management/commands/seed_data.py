@@ -30,7 +30,7 @@ class Command(BaseCommand):
             {
                 "name": "Snake Plant Golden",
                 "botanical_name": "Sansevieria trifasciata 'Laurentii'",
-                "category_name": "Indoor Plants",
+                "category": "Indoor Plants",
                 "tag": "Bestseller",
                 "price": 399,
                 "original_price": 599,
@@ -51,7 +51,7 @@ class Command(BaseCommand):
             {
                 "name": "Monstera Deliciosa (Swiss Cheese Plant)",
                 "botanical_name": "Monstera deliciosa",
-                "category_name": "Indoor Plants",
+                "category": "Indoor Plants",
                 "tag": "Trending",
                 "price": 699,
                 "original_price": 999,
@@ -72,7 +72,7 @@ class Command(BaseCommand):
             {
                 "name": "Areca Palm Air Purifier",
                 "botanical_name": "Dypsis lutescens",
-                "category_name": "Outdoor Plants",
+                "category": "Outdoor Plants",
                 "tag": "Bestseller",
                 "price": 549,
                 "original_price": 799,
@@ -93,7 +93,7 @@ class Command(BaseCommand):
             {
                 "name": "ZZ Plant (Zamioculcas Zamiifolia)",
                 "botanical_name": "Zamioculcas zamiifolia",
-                "category_name": "Indoor Plants",
+                "category": "Indoor Plants",
                 "tag": "Low Maintenance",
                 "price": 499,
                 "original_price": 699,
@@ -114,7 +114,7 @@ class Command(BaseCommand):
             {
                 "name": "Peace Lily (Spathiphyllum)",
                 "botanical_name": "Spathiphyllum wallisii",
-                "category_name": "Flowering Plants",
+                "category": "Flowering Plants",
                 "tag": "Air Purifier",
                 "price": 429,
                 "original_price": 599,
@@ -135,7 +135,7 @@ class Command(BaseCommand):
             {
                 "name": "Organic Heirloom Vegetable Seeds (Pack of 7)",
                 "botanical_name": "Capsicum, Tomato, Spinach, Coriander, Cucumber & More",
-                "category_name": "Seeds",
+                "category": "Seeds",
                 "tag": "Top Rated",
                 "price": 299,
                 "original_price": 499,
@@ -156,7 +156,7 @@ class Command(BaseCommand):
             {
                 "name": "Ribbed Ceramic Self-Watering Planter (Set of 2)",
                 "botanical_name": "Premium Glazed Ceramic",
-                "category_name": "Pots & Planters",
+                "category": "Pots & Planters",
                 "tag": "Modern Growth",
                 "price": 799,
                 "original_price": 1199,
@@ -177,7 +177,7 @@ class Command(BaseCommand):
             {
                 "name": "e-haat Bio-Enriched Organic Potting Mix (5 KG)",
                 "botanical_name": "Coco Peat + Vermicompost + Perlite + Neem Cake",
-                "category_name": "Plant Care",
+                "category": "Plant Care",
                 "tag": "Essential",
                 "price": 349,
                 "original_price": 499,
@@ -198,7 +198,7 @@ class Command(BaseCommand):
             {
                 "name": "Jade Plant (Crassula Ovata - Money Tree)",
                 "botanical_name": "Crassula ovata",
-                "category_name": "Indoor Plants",
+                "category": "Indoor Plants",
                 "tag": "Good Fortune",
                 "price": 349,
                 "original_price": 499,
@@ -219,7 +219,7 @@ class Command(BaseCommand):
             {
                 "name": "Air Purifying Trio Plant Combo",
                 "botanical_name": "Snake Plant + Money Plant + Peace Lily",
-                "category_name": "Gifting & Combos",
+                "category": "Gifting & Combos",
                 "tag": "Super Saver",
                 "price": 999,
                 "original_price": 1597,
@@ -240,14 +240,15 @@ class Command(BaseCommand):
         ]
 
         for p_data in products_data:
-            cat_name = p_data.get('category_name')
+            cat_name = p_data.get('category')
             category_instance = cat_map.get(cat_name)
+
             prod, created = Product.objects.get_or_create(
                 name=p_data['name'],
                 defaults={
                     'category': category_instance,
-                    'category_name': cat_name,
                     'botanical_name': p_data.get('botanical_name'),
+
                     'tag': p_data.get('tag'),
                     'price': p_data.get('price'),
                     'original_price': p_data.get('original_price'),

@@ -1,9 +1,10 @@
 from django.contrib import admin
 from django.contrib.auth import get_user_model
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
-from .models import Category, Product, Role, UserProfile, PhoneOTP
+from .models import Category, Product, Role, UserProfile, PhoneOTP, PasswordResetCode
 
 User = get_user_model()
+
 
 
 @admin.register(Category)
@@ -66,4 +67,13 @@ class PhoneOTPAdmin(admin.ModelAdmin):
     list_filter = ('is_verified', 'created_at')
     search_fields = ('phone_number', 'otp')
     readonly_fields = ('created_at',)
+
+
+@admin.register(PasswordResetCode)
+class PasswordResetCodeAdmin(admin.ModelAdmin):
+    list_display = ('email', 'user', 'code', 'is_used', 'created_at')
+    list_filter = ('is_used', 'created_at')
+    search_fields = ('email', 'user__username', 'code')
+    readonly_fields = ('created_at',)
+
 
