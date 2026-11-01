@@ -114,7 +114,7 @@ export default function CheckoutModal({
             </div>
 
             <form onSubmit={(e) => { e.preventDefault(); setStep(2); }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '14px' }}>
+              <div className="checkout-form-grid-2" style={{ gap: '14px', marginBottom: '14px' }}>
                 <div>
                   <label style={{ fontSize: '0.8rem', fontWeight: '700', color: '#64748B' }}>Full Name</label>
                   <input 
@@ -163,7 +163,7 @@ export default function CheckoutModal({
                 />
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '14px', marginBottom: '24px' }}>
+              <div className="checkout-form-grid-3" style={{ gap: '14px', marginBottom: '24px' }}>
                 <div>
                   <label style={{ fontSize: '0.8rem', fontWeight: '700', color: '#64748B' }}>City</label>
                   <input 

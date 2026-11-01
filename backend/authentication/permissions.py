@@ -1,7 +1,10 @@
 from functools import wraps
+from typing import Callable, TypeVar, Any, overload, Optional, Union, Sequence
 from django.core.exceptions import PermissionDenied
 from django.http import JsonResponse
 from .models import Role, UserProfile
+
+F = TypeVar('F', bound=Callable[..., Any])
 
 
 def get_user_role(user):
@@ -69,16 +72,20 @@ def assign_role(user, role_name_or_instance):
     return profile
 
 
-def role_required(allowed_roles, return_json=False):
+def role_required(
+    allowed_roles: Union[str, Sequence[str]], return_json: bool = False
+) -> Callable[[F], F]:
     """
     View decorator that verifies whether the authenticated user has one of `allowed_roles`.
     If `return_json=True`, returns 401/403 JsonResponse (useful for API endpoints).
     Otherwise raises PermissionDenied.
     """
     if isinstance(allowed_roles, str):
-        allowed_roles = [allowed_roles]
+        roles_list = [allowed_roles]
+    else:
+        roles_list = list(allowed_roles)
 
-    def decorator(view_func):
+    def decorator(view_func: F) -> F:
         @wraps(view_func)
         def _wrapped_view(request, *args, **kwargs):
             if not request.user.is_authenticated:
@@ -86,17 +93,27 @@ def role_required(allowed_roles, return_json=False):
                     return JsonResponse({'error': 'Authentication required'}, status=401)
                 raise PermissionDenied("Authentication required")
 
-            if not has_role(request.user, *allowed_roles):
+            if not has_role(request.user, *roles_list):
                 if return_json:
                     return JsonResponse({'error': 'Permission denied: insufficient role privileges'}, status=403)
                 raise PermissionDenied("Permission denied: insufficient role privileges")
 
             return view_func(request, *args, **kwargs)
-        return _wrapped_view
+        return _wrapped_view  # type: ignore[return-value]
     return decorator
 
 
-def admin_role_required(view_func=None, *, return_json=False):
+@overload
+def admin_role_required(view_func: F, *, return_json: bool = ...) -> F: ...
+
+
+@overload
+def admin_role_required(view_func: None = ..., *, return_json: bool = ...) -> Callable[[F], F]: ...
+
+
+def admin_role_required(
+    view_func: Optional[F] = None, *, return_json: bool = False
+) -> Union[F, Callable[[F], F]]:
     """
     Convenience decorator to restrict access to Admin role or superusers.
     Supports usage with or without arguments:

@@ -25,36 +25,32 @@ export default function TransformHome({ onSelectCategory }) {
   ];
 
   return (
-    <section style={{
-      background: '#FAF0F2',
-      padding: '70px 0'
+    <section className="transform-home-section" style={{
+      background: '#FAF0F2'
     }}>
       <div className="container">
         
         {/* Title */}
-        <div style={{ textAlign: 'center', marginBottom: '40px' }}>
-          <h2 style={{
+        <div style={{ textAlign: 'center' }}>
+          <h2 className="transform-home-title" style={{
             fontFamily: 'serif',
-            fontSize: '2.8rem',
+            fontSize: 'clamp(1.75rem, 5vw, 2.8rem)',
             color: '#1C1C1C',
-            fontWeight: '700'
+            fontWeight: '700',
+            lineHeight: '1.2'
           }}>
             Transform Your Home.
           </h2>
         </div>
 
         {/* 4 Large Vertical Room Cards */}
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
-          gap: '24px'
-        }}>
+        <div className="transform-home-grid">
           {ROOMS.map((room, idx) => (
             <div 
               key={idx}
+              className="transform-room-card"
               style={{
                 position: 'relative',
-                height: '420px',
                 borderRadius: '18px',
                 overflow: 'hidden',
                 boxShadow: '0 8px 24px rgba(0, 0, 0, 0.08)',

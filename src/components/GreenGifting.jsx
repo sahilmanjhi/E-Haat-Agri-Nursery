@@ -15,7 +15,7 @@ export default function GreenGifting({ onSelectCategory }) {
           <div>
             <h2 className="green-gifting-title" style={{
               fontFamily: 'serif',
-              fontSize: '3rem',
+              fontSize: 'clamp(1.85rem, 5.5vw, 3rem)',
               color: '#FFFFFF',
               fontWeight: '700',
               lineHeight: '1.15',

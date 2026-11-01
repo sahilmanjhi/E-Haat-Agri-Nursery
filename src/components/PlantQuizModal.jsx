@@ -81,7 +81,7 @@ export default function PlantQuizModal({ isOpen, onClose, onAddToCart, onQuickVi
             <h3 style={{ fontSize: '1.15rem', marginBottom: '16px', textAlign: 'center' }}>
               1. Where will you place your new plant?
             </h3>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+            <div className="quiz-options-grid" style={{ gap: '12px' }}>
               {['Living Room', 'Bedroom', 'Balcony', 'Workspace / Desk'].map(room => (
                 <button
                   key={room}

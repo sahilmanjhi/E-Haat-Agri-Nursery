@@ -8,47 +8,17 @@ export default function FloatingWhatsApp() {
     <>
       {/* Floating Button */}
       <button 
-        style={{
-          position: 'fixed',
-          bottom: '24px',
-          right: '24px',
-          width: '60px',
-          height: '60px',
-          borderRadius: '50%',
-          background: '#25D366',
-          color: '#FFFFFF',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          boxShadow: '0 8px 24px rgba(37, 211, 102, 0.4)',
-          zIndex: 999,
-          border: 'none',
-          cursor: 'pointer',
-          transition: 'transform 0.3s ease'
-        }}
+        className="floating-whatsapp-btn"
         onClick={() => setIsOpen(!isOpen)}
         title="Chat with ITMUE-HAAT Plant Doctor"
-        onMouseOver={e => e.currentTarget.style.transform = 'scale(1.1)'}
-        onMouseOut={e => e.currentTarget.style.transform = 'scale(1)'}
+        aria-label="Open WhatsApp Plant Doctor Chat"
       >
-        <MessageCircle size={32} />
+        <MessageCircle size={28} />
       </button>
 
       {/* Interactive Chat Popup */}
       {isOpen && (
-        <div style={{
-          position: 'fixed',
-          bottom: '96px',
-          right: '24px',
-          width: '340px',
-          background: '#FFFFFF',
-          borderRadius: '16px',
-          boxShadow: '0 15px 35px rgba(0, 0, 0, 0.2)',
-          zIndex: 1000,
-          overflow: 'hidden',
-          border: '1px solid #E2E8F0',
-          animation: 'fadeIn 0.3s ease'
-        }}>
+        <div className="floating-whatsapp-popup">
           {/* Header */}
           <div style={{
             background: '#075E54',

@@ -29,26 +29,26 @@ export default function FarmToHome() {
   ];
 
   return (
-    <section style={{
+    <section className="farm-to-home-section" style={{
       background: '#046B46',
-      color: '#FFFFFF',
-      padding: '70px 0'
+      color: '#FFFFFF'
     }}>
       <div className="container">
 
         {/* Header */}
-        <div style={{ textAlign: 'center', marginBottom: '50px' }}>
-          <h2 style={{
+        <div className="farm-to-home-header" style={{ textAlign: 'center' }}>
+          <h2 className="farm-to-home-title" style={{
             fontFamily: 'serif',
-            fontSize: '2.8rem',
+            fontSize: 'clamp(1.75rem, 5vw, 2.8rem)',
             color: '#FFFFFF',
             fontWeight: '700',
-            marginBottom: '12px'
+            marginBottom: '12px',
+            lineHeight: '1.2'
           }}>
             From Our Farm to Your Home
           </h2>
-          <p style={{
-            fontSize: '1.05rem',
+          <p className="farm-to-home-sub" style={{
+            fontSize: 'clamp(0.9rem, 2.5vw, 1.05rem)',
             color: 'rgba(255, 255, 255, 0.9)',
             maxWidth: '640px',
             margin: '0 auto',
@@ -59,14 +59,11 @@ export default function FarmToHome() {
         </div>
 
         {/* Cards Grid */}
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
-          gap: '24px'
-        }}>
+        <div className="farm-to-home-grid">
           {STAGES.map((stage) => (
             <div
               key={stage.id}
+              className="farm-stage-card"
               style={{
                 background: '#063827',
                 borderRadius: '16px',
