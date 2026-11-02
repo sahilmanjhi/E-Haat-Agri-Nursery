@@ -255,7 +255,6 @@ class Command(BaseCommand):
                     'discount': p_data.get('discount', 0),
                     'rating': p_data.get('rating', 5.0),
                     'reviews_count': p_data.get('reviews_count', 0),
-                    'in_stock': p_data.get('in_stock', True),
                     'light': p_data.get('light'),
                     'water': p_data.get('water'),
                     'pet_friendly': p_data.get('pet_friendly', False),

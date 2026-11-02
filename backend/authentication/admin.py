@@ -16,9 +16,9 @@ class CategoryAdmin(admin.ModelAdmin):
 
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
-    list_display = ('name', 'category', 'price', 'discount', 'rating', 'in_stock', 'created_at')
+    list_display = ('name', 'category', 'price', 'discount', 'rating', 'created_at')
     search_fields = ('name', 'botanical_name', 'description')
-    list_filter = ('category', 'in_stock', 'tag', 'room')
+    list_filter = ('category', 'tag', 'room')
 
 
 

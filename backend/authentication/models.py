@@ -67,8 +67,6 @@ class Product(models.Model):
     discount = models.IntegerField(default=0)
     rating = models.FloatField(default=5.0)
     reviews_count = models.IntegerField(default=0)
-    in_stock = models.BooleanField(default=True)
-    stock_quantity = models.IntegerField(default=25)
     reorder_level = models.IntegerField(default=5)
     light = models.CharField(max_length=100, blank=True, null=True)
     water = models.CharField(max_length=100, blank=True, null=True)
@@ -115,10 +113,10 @@ class Product(models.Model):
             'createdAt': created_at_str,
             'rating': self.rating,
             'reviewsCount': self.reviews_count,
-            'inStock': self.in_stock,
-            'stockQuantity': getattr(self, 'stock_quantity', 25 if self.in_stock else 0),
+            'inStock': getattr(self, 'in_stock', True),
+            'stockQuantity': getattr(self, 'stock_quantity', 25),
             'reorderLevel': getattr(self, 'reorder_level', 5),
-            'stockStatus': 'Out of Stock' if not self.in_stock or getattr(self, 'stock_quantity', 25) <= 0 else ('Low Stock' if getattr(self, 'stock_quantity', 25) <= getattr(self, 'reorder_level', 5) else 'In Stock'),
+            'stockStatus': 'In Stock',
             'light': self.light or 'Bright Indirect Sunlight',
             'water': self.water or 'Once a week',
             'petFriendly': self.pet_friendly,

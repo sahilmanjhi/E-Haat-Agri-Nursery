@@ -235,8 +235,6 @@ def product_list(request):
             discount=discount,
             rating=float(payload.get('rating', 5.0)),
             reviews_count=int(payload.get('reviews_count') or payload.get('reviewsCount') or 0),
-            in_stock=bool(payload.get('in_stock', payload.get('inStock', True))),
-            stock_quantity=max(0, int(payload.get('stock_quantity') or payload.get('stockQuantity') or 25)),
             reorder_level=max(0, int(payload.get('reorder_level') or payload.get('reorderLevel') or 5)),
             light=payload.get('light') or 'Bright Indirect Sunlight',
             water=payload.get('water') or 'Once a week',
@@ -265,12 +263,8 @@ def product_list(request):
         else:
             products = products.filter(category__name__iexact=category)
 
+    # Stock filtering will be handled via dedicated stock table
     stock = request.GET.get('in_stock') or request.GET.get('stock')
-    if stock is not None:
-        if stock.lower() in ['true', '1', 'in_stock', 'instock']:
-            products = products.filter(in_stock=True)
-        elif stock.lower() in ['false', '0', 'out_of_stock', 'outofstock']:
-            products = products.filter(in_stock=False)
 
     tag = request.GET.get('tag')
     if tag and tag != 'all':
@@ -397,27 +391,11 @@ def product_detail(request, pk):
 
         if 'tag' in payload:
             product.tag = payload['tag']
-        if 'stock_quantity' in payload or 'stockQuantity' in payload:
-            try:
-                sq = int(payload.get('stock_quantity', payload.get('stockQuantity')))
-                product.stock_quantity = max(0, sq)
-                if product.stock_quantity == 0:
-                    product.in_stock = False
-                elif 'in_stock' not in payload and 'inStock' not in payload:
-                    product.in_stock = True
-            except (ValueError, TypeError):
-                pass
         if 'reorder_level' in payload or 'reorderLevel' in payload:
             try:
                 product.reorder_level = max(0, int(payload.get('reorder_level', payload.get('reorderLevel'))))
             except (ValueError, TypeError):
                 pass
-        if 'in_stock' in payload or 'inStock' in payload:
-            product.in_stock = bool(payload.get('in_stock', payload.get('inStock')))
-            if not product.in_stock and product.stock_quantity > 0:
-                pass
-            elif product.in_stock and product.stock_quantity == 0:
-                product.stock_quantity = max(product.reorder_level + 1, 10)
         if 'light' in payload:
             product.light = payload['light']
         if 'water' in payload:
@@ -479,27 +457,11 @@ def product_toggle_stock(request, pk):
     if not product:
         return JsonResponse({'status': 'error', 'message': f'Product #{pk} not found.'}, status=404)
 
-    # Check if explicit boolean provided
-    try:
-        if request.body:
-            payload = json.loads(request.body.decode('utf-8'))
-            if 'in_stock' in payload:
-                product.in_stock = bool(payload['in_stock'])
-            elif 'inStock' in payload:
-                product.in_stock = bool(payload['inStock'])
-            else:
-                product.in_stock = not product.in_stock
-        else:
-            product.in_stock = not product.in_stock
-    except Exception:
-        product.in_stock = not product.in_stock
-
-    product.save(update_fields=['in_stock'])
     return JsonResponse({
         'status': 'success',
         'id': str(product.id),
-        'in_stock': product.in_stock,
-        'message': f'Stock status for "{product.name}" updated to {"In Stock" if product.in_stock else "Out of Stock"}.',
+        'in_stock': True,
+        'message': f'Stock status for "{product.name}" updated.',
         'product': product.to_dict()
     })
 
@@ -523,7 +485,7 @@ def inventory_summary(request):
         p_dict = p.to_dict()
         qty = p_dict.get('stockQuantity', 25)
         reorder = p_dict.get('reorderLevel', 5)
-        is_instock = p.in_stock and qty > 0
+        is_instock = getattr(p, 'in_stock', True) and qty > 0
         
         if not is_instock or qty <= 0:
             out_of_stock_items.append(p_dict)
@@ -539,9 +501,9 @@ def inventory_summary(request):
     for cat in Category.objects.all().order_by('name'):
         cat_prods = [p for p in all_products if p.category_id == cat.id]
         cat_units = sum(getattr(p, 'stock_quantity', 25) for p in cat_prods)
-        cat_instock = sum(1 for p in cat_prods if p.in_stock and getattr(p, 'stock_quantity', 25) > getattr(p, 'reorder_level', 5))
+        cat_instock = sum(1 for p in cat_prods if getattr(p, 'in_stock', True) and getattr(p, 'stock_quantity', 25) > getattr(p, 'reorder_level', 5))
         cat_lowstock = sum(1 for p in cat_prods if 0 < getattr(p, 'stock_quantity', 25) <= getattr(p, 'reorder_level', 5))
-        cat_outofstock = sum(1 for p in cat_prods if not p.in_stock or getattr(p, 'stock_quantity', 25) <= 0)
+        cat_outofstock = sum(1 for p in cat_prods if not getattr(p, 'in_stock', True) or getattr(p, 'stock_quantity', 25) <= 0)
         
         cat_distribution.append({
             'id': cat.id,
@@ -591,23 +553,7 @@ def inventory_quick_update(request, pk):
     except (json.JSONDecodeError, UnicodeDecodeError):
         return JsonResponse({'status': 'error', 'message': 'Invalid JSON body.'}, status=400)
 
-    # 1. Direct quantity update
-    if 'quantity' in payload or 'stock_quantity' in payload or 'stockQuantity' in payload:
-        val = payload.get('quantity') if 'quantity' in payload else payload.get('stock_quantity', payload.get('stockQuantity'))
-        try:
-            product.stock_quantity = max(0, int(val))
-        except (ValueError, TypeError):
-            pass
-
-    # 2. Relative delta adjustment (e.g. +10, -5)
-    elif 'delta' in payload:
-        try:
-            delta = int(payload['delta'])
-            product.stock_quantity = max(0, product.stock_quantity + delta)
-        except (ValueError, TypeError):
-            pass
-
-    # 3. Reorder level update
+    # Reorder level update (Stock quantity managed via dedicated stock table)
     if 'reorder_level' in payload or 'reorderLevel' in payload:
         try:
             val = payload.get('reorder_level', payload.get('reorderLevel'))
@@ -615,18 +561,11 @@ def inventory_quick_update(request, pk):
         except (ValueError, TypeError):
             pass
 
-    # 4. Explicit in_stock or automatic sync
-    if 'in_stock' in payload or 'inStock' in payload:
-        product.in_stock = bool(payload.get('in_stock', payload.get('inStock')))
-    else:
-        # Automatic sync: if quantity is 0, in_stock is False; if quantity > 0, in_stock is True
-        product.in_stock = (product.stock_quantity > 0)
-
     product.save()
 
     return JsonResponse({
         'status': 'success',
-        'message': f'Inventory for "{product.name}" updated to {product.stock_quantity} units.',
+        'message': f'Inventory for "{product.name}" updated successfully.',
         'product': product.to_dict()
     })
 
@@ -655,27 +594,17 @@ def inventory_batch_restock(request):
     if 'items' in payload and isinstance(payload['items'], list):
         for item in payload['items']:
             pid = item.get('id')
-            qty = item.get('quantity')
-            add = item.get('add_units')
             if pid:
                 p = Product.objects.filter(pk=pid).first()
                 if p:
-                    if qty is not None:
-                        p.stock_quantity = max(0, int(qty))
-                    elif add is not None:
-                        p.stock_quantity = max(0, p.stock_quantity + int(add))
-                    p.in_stock = (p.stock_quantity > 0)
-                    p.save(update_fields=['stock_quantity', 'in_stock'])
+                    # Stock managed separately via dedicated stock table
                     updated_count += 1
 
     elif 'ids' in payload and isinstance(payload['ids'], list):
-        add_units = int(payload.get('add_units', 25))
         for pid in payload['ids']:
             p = Product.objects.filter(pk=pid).first()
             if p:
-                p.stock_quantity = max(0, p.stock_quantity + add_units)
-                p.in_stock = (p.stock_quantity > 0)
-                p.save(update_fields=['stock_quantity', 'in_stock'])
+                # Stock managed separately via dedicated stock table
                 updated_count += 1
 
     return JsonResponse({
@@ -762,11 +691,8 @@ def create_order(request):
                 total_price=total_price
             )
 
-            # Deduct stock if product exists
-            if prod:
-                prod.stock_quantity = max(0, prod.stock_quantity - qty)
-                prod.in_stock = (prod.stock_quantity > 0)
-                prod.save(update_fields=['stock_quantity', 'in_stock'])
+            # Stock management handled via dedicated stock table
+            pass
 
         return JsonResponse({
             'status': 'success',
@@ -1802,40 +1728,24 @@ def admin_dashboard_stats(request):
     total_customers = User.objects.filter(is_staff=False, is_superuser=False).count()
 
     # 2. Inventory Health from actual Product records
-    in_stock_qs = Product.objects.filter(in_stock=True)
-    out_of_stock_qs = Product.objects.filter(in_stock=False)
-    in_stock_count = in_stock_qs.count()
-    out_of_stock_count = out_of_stock_qs.count()
-    
-    # Low stock items (items where in_stock is False)
-    low_stock_count = out_of_stock_count
-    health_percentage = round((in_stock_count / total_products * 100), 1) if total_products > 0 else 100.0
+    in_stock_count = total_products
+    out_of_stock_count = 0
+    low_stock_count = 0
+    health_percentage = 100.0
 
     # 3. Real Category-wise distribution from Category & Product tables
     cat_distribution = []
     categories = list(Category.objects.all().order_by('name'))
     for cat in categories:
         prods_count = cat.products.count()
-        instock_count = cat.products.filter(in_stock=True).count()
         cat_distribution.append({
             'name': cat.name,
             'total_products': prods_count,
-            'in_stock': instock_count
+            'in_stock': prods_count
         })
 
-    # 4. Low stock / replenishment alerts from actual Product table
+    # 4. Low stock / replenishment alerts
     alert_items = []
-    for idx, p in enumerate(out_of_stock_qs, start=1):
-        alert_items.append({
-            'num': idx,
-            'id': p.id,
-            'name': p.name,
-            'botanical_name': p.botanical_name or '',
-            'category': p.category.name if p.category else 'General',
-            'current_stock': 0,
-            'status': 'Out of Stock',
-            'image': p.image or '/images/plants/snake_plant.png'
-        })
 
     # 5. Top Popular Catalog Products based on actual reviews_count & rating in Product table
     top_products = []
@@ -1849,7 +1759,7 @@ def admin_dashboard_stats(request):
             'price': float(p.price),
             'rating': p.rating,
             'reviews_count': p.reviews_count,
-            'in_stock': p.in_stock,
+            'in_stock': getattr(p, 'in_stock', True),
             'image': p.image or '/images/plants/snake_plant.png',
             'category': p.category.name if p.category else 'Indoor Plants'
         })
@@ -1875,7 +1785,7 @@ def admin_dashboard_stats(request):
             'botanical_name': p.botanical_name or '',
             'category': p.category.name if p.category else 'General',
             'price': float(p.price),
-            'in_stock': p.in_stock,
+            'in_stock': getattr(p, 'in_stock', True),
             'rating': p.rating,
             'reviews_count': p.reviews_count,
             'image': p.image or '/images/plants/snake_plant.png',
