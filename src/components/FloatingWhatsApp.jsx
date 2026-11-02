@@ -7,7 +7,7 @@ export default function FloatingWhatsApp() {
   return (
     <>
       {/* Floating Button */}
-      <button 
+      <button
         className="floating-whatsapp-btn"
         onClick={() => setIsOpen(!isOpen)}
         title="Chat with ITMUE-HAAT Plant Doctor"
@@ -63,7 +63,7 @@ export default function FloatingWhatsApp() {
               maxWidth: '85%',
               marginBottom: '10px'
             }}>
-              Hi there! 👋 Welcome to ITMUE-HAAT Agri Nursery. Grow Better. Shop Smarter! How can we help you today?
+              Hi there! 👋 Welcome to ITMUE-HAAT. Grow Better. Shop Smarter! How can we help you today?
             </div>
 
             <div style={{
@@ -82,9 +82,9 @@ export default function FloatingWhatsApp() {
 
           {/* Action Footer */}
           <div style={{ padding: '12px', background: '#FFFFFF', borderTop: '1px solid #E2E8F0' }}>
-            <a 
-              href="https://wa.me/919876543210" 
-              target="_blank" 
+            <a
+              href="https://wa.me/919876543210"
+              target="_blank"
               rel="noopener noreferrer"
               style={{
                 display: 'flex',

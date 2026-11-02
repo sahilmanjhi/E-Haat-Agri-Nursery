@@ -652,10 +652,10 @@ export default function AdminProductsList({ onNavigate, onLogout }) {
         /* ================= TABLE LIST VIEW ================= */
         <div className="itmu-panel itmu-table-panel">
           <div className="itmu-table-responsive">
-            <table className="itmu-data-table">
+            <table className="itmu-data-table" style={{ minWidth: 960 }}>
               <thead>
                 <tr>
-                  <th style={{ width: 44, textAlign: 'center' }}>
+                  <th style={{ width: 44, minWidth: 44, textAlign: 'center', whiteSpace: 'nowrap' }}>
                     <input
                       type="checkbox"
                       className="itmu-checkbox"
@@ -666,13 +666,13 @@ export default function AdminProductsList({ onNavigate, onLogout }) {
                       onChange={handleSelectAll}
                     />
                   </th>
-                  <th>Product</th>
-                  <th>Category</th>
-                  <th>Price & MRP</th>
-                  <th>Stock Availability</th>
-                  <th>Rating</th>
-                  <th>Care / Room</th>
-                  <th style={{ textAlign: 'right' }}>Actions</th>
+                  <th style={{ minWidth: 260, whiteSpace: 'nowrap' }}>Product</th>
+                  <th style={{ minWidth: 150, whiteSpace: 'nowrap' }}>Category</th>
+                  <th style={{ minWidth: 140, whiteSpace: 'nowrap' }}>Price & MRP</th>
+                  <th style={{ minWidth: 170, whiteSpace: 'nowrap' }}>Stock Availability</th>
+                  <th style={{ minWidth: 110, whiteSpace: 'nowrap' }}>Rating</th>
+                  <th style={{ minWidth: 140, whiteSpace: 'nowrap' }}>Care / Room</th>
+                  <th style={{ minWidth: 110, textAlign: 'right', whiteSpace: 'nowrap' }}>Actions</th>
                 </tr>
               </thead>
               <tbody>

@@ -698,7 +698,7 @@ export default function AdminInventory({ onLogout, onNavigate }) {
             </button>
           </div>
         ) : (
-          <table className="itmu-admin-table itmu-inventory-table">
+          <table className="itmu-admin-table itmu-inventory-table" style={{ minWidth: 980 }}>
             <thead>
               <tr>
                 <th className="itmu-th-checkbox" style={{ width: '48px', minWidth: '48px', textAlign: 'center' }}>

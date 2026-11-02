@@ -809,9 +809,10 @@ export default function AdminOrders({ onLogout, onNavigate }) {
               )}
             </div>
           ) : (
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{
+            <div className="itmu-table-responsive" style={{ overflowX: 'auto', width: '100%' }}>
+              <table className="itmu-data-table" style={{
                 width: '100%',
+                minWidth: '960px',
                 borderCollapse: 'collapse',
                 textAlign: 'left'
               }}>
@@ -820,25 +821,25 @@ export default function AdminOrders({ onLogout, onNavigate }) {
                     background: '#F6FAF7',
                     borderBottom: '1.5px solid #E1EBE5'
                   }}>
-                    <th style={{ padding: '14px 18px', fontSize: '0.78rem', fontWeight: 700, color: '#527867', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    <th style={{ padding: '14px 18px', minWidth: 150, whiteSpace: 'nowrap', fontSize: '0.78rem', fontWeight: 700, color: '#527867', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                       Order ID & Date
                     </th>
-                    <th style={{ padding: '14px 18px', fontSize: '0.78rem', fontWeight: 700, color: '#527867', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    <th style={{ padding: '14px 18px', minWidth: 180, whiteSpace: 'nowrap', fontSize: '0.78rem', fontWeight: 700, color: '#527867', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                       Customer Details
                     </th>
-                    <th style={{ padding: '14px 18px', fontSize: '0.78rem', fontWeight: 700, color: '#527867', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    <th style={{ padding: '14px 18px', minWidth: 120, whiteSpace: 'nowrap', fontSize: '0.78rem', fontWeight: 700, color: '#527867', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                       Items
                     </th>
-                    <th style={{ padding: '14px 18px', fontSize: '0.78rem', fontWeight: 700, color: '#527867', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    <th style={{ padding: '14px 18px', minWidth: 140, whiteSpace: 'nowrap', fontSize: '0.78rem', fontWeight: 700, color: '#527867', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                       Payment
                     </th>
-                    <th style={{ padding: '14px 18px', fontSize: '0.78rem', fontWeight: 700, color: '#527867', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    <th style={{ padding: '14px 18px', minWidth: 130, whiteSpace: 'nowrap', fontSize: '0.78rem', fontWeight: 700, color: '#527867', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                       Total Amount
                     </th>
-                    <th style={{ padding: '14px 18px', fontSize: '0.78rem', fontWeight: 700, color: '#527867', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    <th style={{ padding: '14px 18px', minWidth: 150, whiteSpace: 'nowrap', fontSize: '0.78rem', fontWeight: 700, color: '#527867', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                       Delivery Status
                     </th>
-                    <th style={{ padding: '14px 18px', fontSize: '0.78rem', fontWeight: 700, color: '#527867', textTransform: 'uppercase', letterSpacing: '0.04em', textAlign: 'right' }}>
+                    <th style={{ padding: '14px 18px', minWidth: 120, whiteSpace: 'nowrap', fontSize: '0.78rem', fontWeight: 700, color: '#527867', textTransform: 'uppercase', letterSpacing: '0.04em', textAlign: 'right' }}>
                       Actions
                     </th>
                   </tr>

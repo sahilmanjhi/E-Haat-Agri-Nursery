@@ -5605,33 +5605,64 @@ input, select, textarea {
   gap: 10px;
   padding: 4px 12px 4px 4px;
   background: #FFFFFF;
-  border: none;
-  border-radius: 20px;
+  border: 1.5px solid #E2E8F0;
+  border-radius: 9999px;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 }
 
 .itmu-admin-profile-btn:hover {
-  background: #F1F5F9;
+  background: #F8FAF8;
+  border-color: #CADFD4;
 }
 
 .itmu-profile-avatar {
-  width: 34px;
-  height: 34px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
-  background: #0D3B22;
+  background: linear-gradient(135deg, #146B3A 0%, #064E35 100%);
   color: #FFFFFF;
   font-weight: 800;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.9rem;
+  font-size: 0.95rem;
+  flex-shrink: 0;
+  border: 2px solid #FFFFFF;
+  box-shadow: 0 2px 4px rgba(20, 107, 58, 0.25);
+}
+
+.itmu-profile-info-text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  text-align: left;
+  line-height: 1.25;
 }
 
 .itmu-profile-name {
-  font-size: 0.9rem;
+  font-size: 0.88rem;
   font-weight: 700;
-  color: #1F2937;
+  color: #172B24;
+  white-space: nowrap;
+  max-width: 130px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.itmu-profile-role-badge {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: #146B3A;
+  white-space: nowrap;
+}
+
+.itmu-profile-chevron {
+  flex-shrink: 0;
+  color: #64748B;
+  transition: transform 0.2s ease;
 }
 
 /* Dropdown popover panels */
@@ -6596,11 +6627,14 @@ input, select, textarea {
 }
 
 .itmu-table-responsive {
+  width: 100%;
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .itmu-table {
   width: 100%;
+  min-width: 680px;
   border-collapse: collapse;
   text-align: left;
   font-size: 0.85rem;
@@ -7221,7 +7255,8 @@ input, select, textarea {
 .itmu-products-title-group {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
 .itmu-products-count-pill {
@@ -7234,6 +7269,8 @@ input, select, textarea {
   border-radius: 9999px;
   font-size: 0.82rem;
   font-weight: 700;
+  white-space: nowrap !important;
+  flex-shrink: 0 !important;
 }
 
 .itmu-products-header-buttons {
@@ -7538,17 +7575,19 @@ input, select, textarea {
 .itmu-table-responsive {
   width: 100%;
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .itmu-data-table {
   width: 100%;
+  min-width: 860px;
   border-collapse: collapse;
   text-align: left;
 }
 
 .itmu-data-table thead tr {
   background-color: #F8FAF7;
-  border-bottom: 1px solid #E2E8F0;
+  border-bottom: 1.5px solid #E2E8F0;
 }
 
 .itmu-data-table th {
@@ -7557,7 +7596,9 @@ input, select, textarea {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: #64748B;
+  color: #527867;
+  white-space: nowrap !important;
+  vertical-align: middle;
 }
 
 .itmu-data-table tbody tr {
@@ -7578,6 +7619,8 @@ input, select, textarea {
   font-size: 0.88rem;
   color: #1E293B;
   vertical-align: middle;
+  word-break: normal;
+  overflow-wrap: break-word;
 }
 
 .itmu-checkbox {
@@ -7647,11 +7690,14 @@ input, select, textarea {
 .itmu-badge {
   display: inline-flex;
   align-items: center;
-  padding: 2px 8px;
-  border-radius: 6px;
-  font-size: 0.72rem;
+  padding: 4px 10px;
+  border-radius: 8px;
+  font-size: 0.76rem;
   font-weight: 700;
   letter-spacing: 0.02em;
+  white-space: nowrap !important;
+  flex-shrink: 0 !important;
+  line-height: 1.3;
 }
 
 .itmu-badge-bestseller {
@@ -7688,6 +7734,49 @@ input, select, textarea {
   background-color: #F1F5F9;
   color: #475569;
   border: 1px solid #E2E8F0;
+}
+
+/* Core Categories Showcase Row */
+.itmu-core-categories-showcase {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.itmu-core-cat-label {
+  font-size: 0.84rem;
+  color: #475569;
+  font-weight: 700;
+  white-space: nowrap !important;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.itmu-core-cat-dot {
+  color: #146B3A;
+  font-size: 0.75rem;
+}
+
+.itmu-core-cat-badges {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 900px) {
+  .itmu-core-categories-showcase {
+    margin-left: 0 !important;
+    width: 100% !important;
+    margin-top: 8px !important;
+    padding-top: 10px !important;
+    border-top: 1px dashed #E2E8F0 !important;
+    justify-content: flex-start !important;
+  }
 }
 
 .itmu-category-chip {
@@ -9311,6 +9400,7 @@ input, select, textarea {
 
 .itmu-inventory-table {
   width: 100%;
+  min-width: 960px;
   border-collapse: collapse;
   text-align: left;
 }
@@ -10712,7 +10802,7 @@ img, video, iframe, svg {
   }
 }
 
-/* --- 10. Admin Portal Multi-Device Breakpoints --- */
+/* --- 10. Admin Portal Multi-Device Breakpoints & Polished Responsiveness --- */
 @media (max-width: 1024px) {
   .itmu-main-wrapper {
     margin-left: 0 !important;
@@ -10747,17 +10837,31 @@ img, video, iframe, svg {
 
   .itmu-hamburger-btn {
     display: flex !important;
+    width: 40px !important;
+    height: 40px !important;
+    flex-shrink: 0 !important;
+  }
+
+  .itmu-topbar-left {
+    flex-shrink: 0 !important;
+    min-width: 0 !important;
   }
 }
 
 @media (max-width: 768px) {
   .itmu-topbar {
     padding: 0 14px !important;
+    height: 64px !important;
+  }
+
+  .itmu-topbar-right {
+    gap: 8px !important;
+    flex-shrink: 0 !important;
   }
 
   .itmu-cards-grid {
     grid-template-columns: repeat(2, 1fr) !important;
-    gap: 10px !important;
+    gap: 12px !important;
   }
 
   .itmu-content-canvas {
@@ -10770,27 +10874,140 @@ img, video, iframe, svg {
 
   .itmu-store-link-btn {
     padding: 8px !important;
+    width: 38px !important;
+    height: 38px !important;
     border-radius: 50% !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    flex-shrink: 0 !important;
+  }
+
+  .itmu-notif-btn {
+    width: 38px !important;
+    height: 38px !important;
+    flex-shrink: 0 !important;
+  }
+
+  .itmu-products-header-card {
+    padding: 18px 16px !important;
+    gap: 14px !important;
+    flex-direction: column !important;
+    align-items: flex-start !important;
+  }
+
+  .itmu-page-title {
+    font-size: 1.45rem !important;
+  }
+
+  .itmu-page-subtitle {
+    font-size: 0.85rem !important;
+  }
+
+  .itmu-products-header-buttons {
+    width: 100% !important;
+    display: flex !important;
+    gap: 8px !important;
+  }
+
+  .itmu-products-header-buttons button {
+    flex: 1 !important;
+    justify-content: center !important;
+    padding: 10px 14px !important;
+    font-size: 0.85rem !important;
   }
 }
 
-@media (max-width: 480px) {
-  .itmu-cards-grid {
-    grid-template-columns: 1fr !important;
+@media (max-width: 640px) {
+  .itmu-profile-info-text,
+  .itmu-profile-chevron {
+    display: none !important;
+  }
+
+  .itmu-admin-profile-btn {
+    padding: 0 !important;
+    border: none !important;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+
+  .itmu-profile-avatar {
+    width: 36px !important;
+    height: 36px !important;
+    border: 2px solid #FFFFFF !important;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12) !important;
+  }
+
+  .itmu-header-action-btn span {
+    display: none !important;
+  }
+
+  .itmu-header-action-btn {
+    padding: 8px !important;
+    width: 36px !important;
+    height: 36px !important;
+    border-radius: 50% !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
   }
 
   .itmu-search-bar {
     display: none !important;
   }
 
+  .itmu-products-count-pill {
+    font-size: 0.75rem !important;
+    padding: 3px 10px !important;
+  }
+
+  .itmu-filter-search-box {
+    width: 100% !important;
+    flex: 1 1 100% !important;
+  }
+
+  .itmu-select-wrap {
+    flex: 1 1 calc(50% - 6px) !important;
+  }
+
+  .itmu-select-input {
+    width: 100% !important;
+    font-size: 0.8rem !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .itmu-cards-grid {
+    grid-template-columns: 1fr !important;
+    gap: 10px !important;
+  }
+
+  .itmu-topbar-actions-slot {
+    display: none !important;
+  }
+
   .itmu-topbar-right {
-    gap: 8px !important;
+    gap: 6px !important;
   }
 
   .itmu-stat-card {
     padding: 14px 12px !important;
   }
+
+  .itmu-products-title-group {
+    gap: 8px !important;
+  }
+
+  .itmu-page-title {
+    font-size: 1.35rem !important;
+  }
+
+  .itmu-products-header-buttons button {
+    padding: 9px 10px !important;
+    font-size: 0.82rem !important;
+  }
 }
+
 
 
 

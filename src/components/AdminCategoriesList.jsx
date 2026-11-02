@@ -392,14 +392,18 @@ export default function AdminCategoriesList({ onNavigate, onLogout }) {
             )}
           </div>
 
-          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span style={{ fontSize: '0.85rem', color: '#64748B', fontWeight: 600 }}>
+          {/* Core Categories Showcase Row */}
+          <div className="itmu-core-categories-showcase">
+            <span className="itmu-core-cat-label">
+              <span className="itmu-core-cat-dot">●</span>
               Official Core Categories:
             </span>
-            <span className="itmu-badge itmu-badge-bestseller">Indoor Plants</span>
-            <span className="itmu-badge itmu-badge-trending">Flowers</span>
-            <span className="itmu-badge itmu-badge-toprated">Fruits Plants</span>
-            <span className="itmu-badge itmu-badge-new">Vegetables Crops</span>
+            <div className="itmu-core-cat-badges">
+              <span className="itmu-badge itmu-badge-bestseller">Indoor Plants</span>
+              <span className="itmu-badge itmu-badge-trending">Flowers</span>
+              <span className="itmu-badge itmu-badge-toprated">Fruits Plants</span>
+              <span className="itmu-badge itmu-badge-new">Vegetables Crops</span>
+            </div>
           </div>
         </div>
       </section>
@@ -441,15 +445,15 @@ export default function AdminCategoriesList({ onNavigate, onLogout }) {
         /* Data Table */
         <div className="itmu-panel itmu-table-panel">
           <div className="itmu-table-responsive">
-            <table className="itmu-data-table">
+            <table className="itmu-data-table" style={{ minWidth: 840 }}>
               <thead>
                 <tr>
-                  <th style={{ width: 60, textAlign: 'center' }}>Icon</th>
-                  <th>Category Name</th>
-                  <th>Department Scope / Description</th>
-                  <th style={{ textAlign: 'center' }}>Products Count</th>
-                  <th>Catalog Filter</th>
-                  <th style={{ textAlign: 'right' }}>Actions</th>
+                  <th style={{ width: 60, minWidth: 60, textAlign: 'center', whiteSpace: 'nowrap' }}>Icon</th>
+                  <th style={{ minWidth: 170, whiteSpace: 'nowrap' }}>Category Name</th>
+                  <th style={{ minWidth: 260, whiteSpace: 'nowrap' }}>Department Scope / Description</th>
+                  <th style={{ minWidth: 140, textAlign: 'center', whiteSpace: 'nowrap' }}>Products Count</th>
+                  <th style={{ minWidth: 160, whiteSpace: 'nowrap' }}>Catalog Filter</th>
+                  <th style={{ minWidth: 110, textAlign: 'right', whiteSpace: 'nowrap' }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -565,7 +569,7 @@ export default function AdminCategoriesList({ onNavigate, onLogout }) {
             </span>
             <div className="itmu-table-footer-legend">
               <span className="itmu-legend-dot itmu-legend-dot--darkgreen" />
-              <span>Synced with SQLite database table</span>
+              <span>Synced with Database</span>
             </div>
           </div>
         </div>

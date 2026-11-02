@@ -1690,6 +1690,8 @@ def admin_login(request):
     matched_user = None
     if '@' in identifier:
         matched_user = User.objects.filter(email__iexact=identifier).first()
+        if not matched_user:
+            matched_user = User.objects.filter(username__iexact=identifier).first()
     else:
         matched_user = User.objects.filter(username__iexact=identifier).first()
         if not matched_user:

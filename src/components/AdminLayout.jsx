@@ -287,7 +287,11 @@ export default function AdminLayout({
 
           <div className="itmu-topbar-right">
             {/* Header Actions slot (e.g. Add Product button) */}
-            {headerActions}
+            {headerActions && (
+              <div className="itmu-topbar-actions-slot">
+                {headerActions}
+              </div>
+            )}
 
             {/* Public Store link */}
             <a 
@@ -326,7 +330,7 @@ export default function AdminLayout({
                     <div className="itmu-notif-item">
                       <div className="itmu-notif-dot" />
                       <div>
-                        <p><strong>Catalog Synchronized:</strong> Live SQLite database connected and synced.</p>
+                        <p><strong>Catalog Synchronized:</strong> Live database connected and synced.</p>
                         <small>Just now</small>
                       </div>
                     </div>
@@ -361,20 +365,24 @@ export default function AdminLayout({
                   setProfileDropdownOpen(!profileDropdownOpen);
                   setNotificationsOpen(false);
                 }}
+                aria-label="Admin Profile Menu"
               >
-                <div className="itmu-profile-avatar">
-                  {adminUser.first_name ? adminUser.first_name[0].toUpperCase() : 'A'}
+                <div className="itmu-profile-avatar" title={adminUser.first_name || adminUser.username || 'Admin'}>
+                  {adminUser.first_name ? adminUser.first_name[0].toUpperCase() : (adminUser.username ? adminUser.username[0].toUpperCase() : 'A')}
                 </div>
-                <span className="itmu-profile-name">
-                  {adminUser.first_name ? adminUser.first_name : 'Admin'}
-                </span>
-                <ChevronDown size={14} color="#64748B" />
+                <div className="itmu-profile-info-text">
+                  <span className="itmu-profile-name">
+                    {adminUser.first_name || adminUser.username || 'Admin'}
+                  </span>
+                  <span className="itmu-profile-role-badge">Admin</span>
+                </div>
+                <ChevronDown size={14} color="#64748B" className="itmu-profile-chevron" />
               </button>
 
               {profileDropdownOpen && (
                 <div className="itmu-dropdown-panel itmu-profile-panel">
                   <div className="itmu-profile-dropdown-head">
-                    <strong>{adminUser.first_name ? `${adminUser.first_name} ${adminUser.last_name || ''}`.trim() : 'Administrator'}</strong>
+                    <strong>{adminUser.first_name || adminUser.username || 'Administrator'}</strong>
                     <small>{adminUser.email || 'admin@itmu-ehaat.in'}</small>
                   </div>
                   <div className="itmu-profile-links">

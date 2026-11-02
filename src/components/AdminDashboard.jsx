@@ -510,7 +510,7 @@ export default function AdminDashboard({ onLogout, onNavigate }) {
                     <div className="itmu-notif-item">
                       <div className="itmu-notif-dot itmu-notif-dot--blue" />
                       <div>
-                        <p><strong>Backend Telemetry:</strong> Connected to SQLite backend on port 8000.</p>
+                        <p><strong>Backend Telemetry:</strong> Connected to database backend on port 8000.</p>
                         <small>1 hr ago</small>
                       </div>
                     </div>
@@ -531,14 +531,18 @@ export default function AdminDashboard({ onLogout, onNavigate }) {
                   setProfileDropdownOpen(!profileDropdownOpen);
                   setNotificationsOpen(false);
                 }}
+                aria-label="Admin Profile Menu"
               >
-                <div className="itmu-profile-avatar">
-                  {adminUser.first_name ? adminUser.first_name[0].toUpperCase() : 'A'}
+                <div className="itmu-profile-avatar" title={adminUser.first_name || adminUser.username || 'Admin'}>
+                  {adminUser.first_name ? adminUser.first_name[0].toUpperCase() : (adminUser.username ? adminUser.username[0].toUpperCase() : 'A')}
                 </div>
-                <span className="itmu-profile-name">
-                  {adminUser.first_name ? adminUser.first_name : 'Admin'}
-                </span>
-                <ChevronDown size={14} color="#64748B" />
+                <div className="itmu-profile-info-text">
+                  <span className="itmu-profile-name">
+                    {adminUser.first_name || adminUser.username || 'Admin'}
+                  </span>
+                  <span className="itmu-profile-role-badge">Admin</span>
+                </div>
+                <ChevronDown size={14} color="#64748B" className="itmu-profile-chevron" />
               </button>
 
               {profileDropdownOpen && (
@@ -1285,7 +1289,7 @@ export default function AdminDashboard({ onLogout, onNavigate }) {
               </div>
 
               <div className="itmu-table-responsive">
-                <table className="itmu-table">
+                <table className="itmu-table" style={{ minWidth: 680 }}>
                   <thead>
                     <tr>
                       <th style={{ width: 30 }}>#</th>
@@ -1365,7 +1369,7 @@ export default function AdminDashboard({ onLogout, onNavigate }) {
               </div>
 
               <div className="itmu-table-responsive">
-                <table className="itmu-table">
+                <table className="itmu-table" style={{ minWidth: 680 }}>
                   <thead>
                     <tr>
                       <th style={{ width: 30 }}>#</th>
@@ -1549,7 +1553,7 @@ export default function AdminDashboard({ onLogout, onNavigate }) {
                     </div>
                   ) : (
                     <div className="itmu-table-responsive" style={{ maxHeight: 300, overflowY: 'auto' }}>
-                      <table className="itmu-table">
+                      <table className="itmu-table" style={{ minWidth: 600 }}>
                         <thead>
                           <tr>
                             <th>Order ID</th>

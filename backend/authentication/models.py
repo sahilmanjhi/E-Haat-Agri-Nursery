@@ -401,6 +401,99 @@ class OrderItem(models.Model):
         }
 
 
+class Cart(models.Model):
+    id = models.BigAutoField(primary_key=True)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='carts',
+        null=True,
+        blank=True
+    )
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    objects = models.Manager()
+
+    class Meta:
+        verbose_name = 'Cart'
+        verbose_name_plural = 'Carts'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        user_identifier = getattr(self.user, 'username', 'Anonymous') if self.user else 'Anonymous'
+        status_str = 'Active' if self.is_active else 'Inactive'
+        return f"Cart #{self.id} - {user_identifier} ({status_str})"
+
+    def to_dict(self):
+        created_at_dt = getattr(self, 'created_at', None)
+        updated_at_dt = getattr(self, 'updated_at', None)
+        user_val = getattr(self, 'user_id', None)
+        if user_val is None and self.user:
+            user_val = getattr(self.user, 'id', getattr(self.user, 'pk', None))
+
+        return {
+            'id': self.id,
+            'user': user_val,
+            'is_active': self.is_active,
+            'created_at': created_at_dt.isoformat() if created_at_dt else None,
+            'updated_at': updated_at_dt.isoformat() if updated_at_dt else None,
+        }
+
+
+class CartItem(models.Model):
+    id = models.BigAutoField(primary_key=True)
+    cart = models.ForeignKey(
+        Cart,
+        on_delete=models.CASCADE,
+        related_name='items'
+    )
+    product = models.ForeignKey(
+        Product,
+        on_delete=models.CASCADE,
+        related_name='cart_items'
+    )
+    quantity = models.PositiveIntegerField(default=1)
+    added_at = models.DateTimeField(auto_now_add=True)
+
+    objects = models.Manager()
+
+    class Meta:
+        verbose_name = 'Cart Item'
+        verbose_name_plural = 'Cart Items'
+        ordering = ['-added_at']
+
+    def __str__(self):
+        prod_name = self.product.name if self.product else 'Unknown Product'
+        cart_id = getattr(self, 'cart_id', None) or (self.cart.id if self.cart else 'None')
+        return f"{self.quantity}x {prod_name} in Cart #{cart_id}"
+
+    def to_dict(self):
+        item_pk = getattr(self, 'id', getattr(self, 'pk', None))
+        cart_id_val = getattr(self, 'cart_id', None)
+        prod_id_val = getattr(self, 'product_id', None)
+        added_at_dt = getattr(self, 'added_at', None)
+        added_at_str = added_at_dt.isoformat() if hasattr(added_at_dt, 'isoformat') else (str(added_at_dt) if added_at_dt else None)
+
+        product_data = self.product.to_dict() if self.product and hasattr(self.product, 'to_dict') else None
+
+        return {
+            'id': item_pk,
+            'cart': cart_id_val,
+            'cart_id': cart_id_val,
+            'product': prod_id_val,
+            'product_id': prod_id_val,
+            'quantity': self.quantity,
+            'added_at': added_at_str,
+            'product_details': product_data,
+        }
+
+
+# Compatibility alias for cartItem
+cartItem = CartItem
+
+
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 
