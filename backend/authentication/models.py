@@ -204,46 +204,6 @@ class UserProfile(models.Model):
         phone = f" - {self.phone_number}" if self.phone_number else ""
         return f"{self.user} ({role_name}){phone}"
 
-
-class PhoneOTP(models.Model):
-    phone_number = models.CharField(max_length=20, db_index=True)
-    otp = models.CharField(max_length=6)
-    created_at = models.DateTimeField(auto_now_add=True)
-    is_verified = models.BooleanField(default=False)
-
-    objects = models.Manager()
-
-    class Meta:
-        verbose_name = 'Phone OTP'
-        verbose_name_plural = 'Phone OTPs'
-        ordering = ['-created_at']
-
-    def __str__(self):
-        return f"{self.phone_number} - {self.otp}"
-
-
-class PasswordResetCode(models.Model):
-    user = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
-        related_name='password_reset_codes'
-    )
-    email = models.EmailField(db_index=True)
-    code = models.CharField(max_length=6)
-    created_at = models.DateTimeField(auto_now_add=True)
-    is_used = models.BooleanField(default=False)
-
-    objects = models.Manager()
-
-    class Meta:
-        verbose_name = 'Password Reset Code'
-        verbose_name_plural = 'Password Reset Codes'
-        ordering = ['-created_at']
-
-    def __str__(self):
-        return f"{self.email} ({self.code})"
-
-
 class Order(models.Model):
     STATUS_CHOICES = [
         ('Pending', 'Pending'),

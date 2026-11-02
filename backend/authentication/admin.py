@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth import get_user_model
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
-from .models import Category, Product, Role, UserProfile, PhoneOTP, PasswordResetCode, Cart, CartItem
+from .models import Category, Product, Role, UserProfile, Cart, CartItem
 
 User = get_user_model()
 
@@ -59,22 +59,6 @@ class UserProfileAdmin(admin.ModelAdmin):
     list_display = ('user', 'phone_number', 'role')
     list_filter = ('role',)
     search_fields = ('user__username', 'user__email', 'phone_number', 'role__name')
-
-
-@admin.register(PhoneOTP)
-class PhoneOTPAdmin(admin.ModelAdmin):
-    list_display = ('phone_number', 'otp', 'is_verified', 'created_at')
-    list_filter = ('is_verified', 'created_at')
-    search_fields = ('phone_number', 'otp')
-    readonly_fields = ('created_at',)
-
-
-@admin.register(PasswordResetCode)
-class PasswordResetCodeAdmin(admin.ModelAdmin):
-    list_display = ('email', 'user', 'code', 'is_used', 'created_at')
-    list_filter = ('is_used', 'created_at')
-    search_fields = ('email', 'user__username', 'code')
-    readonly_fields = ('created_at',)
 
 
 class CartItemInline(admin.TabularInline):

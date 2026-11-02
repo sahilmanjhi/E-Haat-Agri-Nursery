@@ -1,6 +1,7 @@
 import json
 import random
 import re
+import time
 from datetime import timedelta
 from decimal import Decimal
 from django.conf import settings
@@ -11,7 +12,11 @@ from django.views.decorators.http import require_http_methods
 from django.contrib.auth import authenticate, login, logout, get_user_model
 from django.contrib.auth.decorators import login_required
 from django.core.mail import send_mail
-from .models import Category, Product, Role, UserProfile, PhoneOTP, PasswordResetCode, Order, OrderItem
+from .models import Category, Product, Role, UserProfile, Order, OrderItem
+
+# Ephemeral in-memory caches for verification codes (No database storage)
+_EPHEMERAL_OTP_STORE = {}    # { phone: { 'otp': code, 'expires_at': ts } }
+_EPHEMERAL_RESET_STORE = {}  # { email: { 'code': code, 'expires_at': ts } }
 
 User = get_user_model()
 
@@ -1266,14 +1271,19 @@ def send_otp(request):
     # Generate 4-digit OTP matching the 4-box OTP UI
     otp_code = f"{random.randint(1000, 9999):04d}"
 
-    # Invalidate previous unverified OTPs for this number
-    PhoneOTP.objects.filter(phone_number=clean_digits, is_verified=False).delete()
-
-    # Save new OTP record
-    PhoneOTP.objects.create(
-        phone_number=clean_digits,
-        otp=otp_code,
-    )
+    # Ephemeral in-memory store (No database persistence)
+    _EPHEMERAL_OTP_STORE[clean_digits] = {
+        'otp': otp_code,
+        'expires_at': time.time() + 600,  # 10 minutes
+    }
+    try:
+        request.session['phone_otp'] = {
+            'phone': clean_digits,
+            'otp': otp_code,
+            'expires_at': time.time() + 600,
+        }
+    except Exception:
+        pass
 
     # Simulated SMS/WhatsApp notification log
     print(f"\n========================================================")
@@ -1314,23 +1324,27 @@ def verify_otp(request):
     if not clean_digits or not submitted_otp:
         return JsonResponse({'status': 'error', 'message': 'Mobile number and OTP code are required.'}, status=400)
 
-    # Check OTP in database
-    ten_minutes_ago = timezone.now() - timedelta(minutes=10)
-    otp_record = PhoneOTP.objects.filter(
-        phone_number=clean_digits,
-        otp=submitted_otp,
-        is_verified=False,
-        created_at__gte=ten_minutes_ago
-    ).first()
+    # Check ephemeral in-memory cache and session (No database persistence)
+    now = time.time()
+    stored = _EPHEMERAL_OTP_STORE.get(clean_digits)
+    session_stored = request.session.get('phone_otp') if hasattr(request, 'session') else None
 
-    is_valid = bool(otp_record) or (settings.DEBUG and submitted_otp in ['1234', '123456'])
+    is_valid = False
+    if stored and stored.get('otp') == submitted_otp and stored.get('expires_at', 0) >= now:
+        is_valid = True
+        _EPHEMERAL_OTP_STORE.pop(clean_digits, None)
+    elif session_stored and session_stored.get('phone') == clean_digits and session_stored.get('otp') == submitted_otp and session_stored.get('expires_at', 0) >= now:
+        is_valid = True
+        try:
+            del request.session['phone_otp']
+        except Exception:
+            pass
+    elif settings.DEBUG and submitted_otp in ['1234', '123456']:
+        is_valid = True
+        _EPHEMERAL_OTP_STORE.pop(clean_digits, None)
 
     if not is_valid:
         return JsonResponse({'status': 'error', 'message': 'Invalid or expired OTP code. Please check and try again.'}, status=400)
-
-    if otp_record:
-        otp_record.is_verified = True
-        otp_record.save()
 
     # Find or create user by phone number
     profile = UserProfile.objects.filter(phone_number=clean_digits).select_related('user').first()
@@ -1529,16 +1543,24 @@ def forgot_password(request):
             'message': 'No account was found with that email address. Please check and try again.'
         }, status=404)
 
-    # Invalidate previous unused codes
-    PasswordResetCode.objects.filter(user=user, is_used=False).update(is_used=True)
-
     # Generate 6-digit verification code
     code = f"{random.randint(100000, 999999):06d}"
-    reset_record = PasswordResetCode.objects.create(
-        user=user,
-        email=user.email or email,
-        code=code
-    )
+
+    # Ephemeral in-memory store (No database persistence)
+    target_email = (user.email or email).lower()
+    _EPHEMERAL_RESET_STORE[target_email] = {
+        'code': code,
+        'expires_at': time.time() + 900,  # 15 minutes
+        'user_id': user.id,
+    }
+    try:
+        request.session['password_reset'] = {
+            'email': target_email,
+            'code': code,
+            'expires_at': time.time() + 900,
+        }
+    except Exception:
+        pass
 
     # Format email dispatch
     subject = "ITMU E-Haat - Password Reset Code"
@@ -1605,16 +1627,24 @@ def reset_password(request):
             'message': 'New password must be at least 6 characters long.'
         }, status=400)
 
-    fifteen_mins_ago = timezone.now() - timedelta(minutes=15)
-    reset_entry = PasswordResetCode.objects.filter(
-        email__iexact=email,
-        code=code,
-        is_used=False,
-        created_at__gte=fifteen_mins_ago
-    ).select_related('user').first()
+    now = time.time()
+    target_email = email.lower()
+    stored_reset = _EPHEMERAL_RESET_STORE.get(target_email)
+    session_reset = request.session.get('password_reset') if hasattr(request, 'session') else None
 
-    # Also check if debug override
-    is_valid = bool(reset_entry) or (settings.DEBUG and code in ['123456', '999999'])
+    is_valid = False
+    if stored_reset and stored_reset.get('code') == code and stored_reset.get('expires_at', 0) >= now:
+        is_valid = True
+        _EPHEMERAL_RESET_STORE.pop(target_email, None)
+    elif session_reset and session_reset.get('email') == target_email and session_reset.get('code') == code and session_reset.get('expires_at', 0) >= now:
+        is_valid = True
+        try:
+            del request.session['password_reset']
+        except Exception:
+            pass
+    elif settings.DEBUG and code in ['123456', '999999']:
+        is_valid = True
+        _EPHEMERAL_RESET_STORE.pop(target_email, None)
 
     if not is_valid:
         return JsonResponse({
@@ -1623,17 +1653,15 @@ def reset_password(request):
         }, status=400)
 
     # Retrieve user
-    user = reset_entry.user if reset_entry else User.objects.filter(email__iexact=email).first()
+    user = User.objects.filter(email__iexact=target_email).first()
+    if not user:
+        user = User.objects.filter(username__iexact=email).first()
     if not user:
         return JsonResponse({'status': 'error', 'message': 'User account not found.'}, status=404)
 
     # Set new password properly hashed
     user.set_password(new_password)
     user.save()
-
-    if reset_entry:
-        reset_entry.is_used = True
-        reset_entry.save()
 
     # Log user into new session
     login(request, user)
