@@ -235,7 +235,8 @@ class Order(models.Model):
         ordering = ['-created_at']
 
     def __str__(self):
-        cust_name = self.customer.username if self.customer else f"Customer #{self.customer_id}"
+        cust_id = getattr(self, 'customer_id', None)
+        cust_name = self.customer.username if self.customer else (f"Customer #{cust_id}" if cust_id else "Guest Customer")
         return f"{self.order_number} - {cust_name} (₹{self.total_amount})"
 
     @property
@@ -372,8 +373,10 @@ class OrderItem(models.Model):
         verbose_name_plural = 'Order Items'
 
     def __str__(self):
-        prod_name = self.product.name if self.product else f"Product #{self.product_id}"
-        ord_num = self.order.order_number if self.order else f"Order #{self.order_id}"
+        prod_id = getattr(self, 'product_id', None)
+        prod_name = self.product.name if self.product else f"Product #{prod_id or 'Unknown'}"
+        ord_id = getattr(self, 'order_id', None)
+        ord_num = self.order.order_number if self.order else f"Order #{ord_id or 'Unknown'}"
         return f"{self.quantity}x {prod_name} in {ord_num}"
 
     @property
