@@ -212,32 +212,20 @@ class Order(models.Model):
         ('Cancelled', 'Cancelled'),
     ]
 
-    order_id = models.CharField(max_length=64, unique=True, db_index=True)
-    user = models.ForeignKey(
+    id = models.BigAutoField(primary_key=True)
+    customer = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         null=True,
         blank=True,
-        on_delete=models.SET_NULL,
-        related_name='orders'
+        on_delete=models.CASCADE,
+        related_name='orders',
+        db_column='customer_id'
     )
-    customer_name = models.CharField(max_length=255)
-    customer_email = models.EmailField(blank=True, null=True)
-    customer_phone = models.CharField(max_length=20)
-    delivery_address = models.TextField()
-    city = models.CharField(max_length=100, default='Gwalior')
-    state = models.CharField(max_length=100, default='Madhya Pradesh')
-    pincode = models.CharField(max_length=20, default='474001')
-    payment_method = models.CharField(max_length=50, default='UPI Verified')
-    payment_status = models.CharField(max_length=50, default='Paid')
-    status = models.CharField(max_length=50, choices=STATUS_CHOICES, default='Processing')
-    subtotal = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
-    shipping_fee = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    order_number = models.CharField(max_length=64, unique=True, db_index=True)
     total_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
-    tracking_number = models.CharField(max_length=100, blank=True, null=True)
-    estimated_delivery = models.CharField(max_length=100, blank=True, null=True)
-    notes = models.TextField(blank=True, null=True)
+    status = models.CharField(max_length=50, choices=STATUS_CHOICES, default='Pending')
+    shipping_address = models.TextField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
 
     objects = models.Manager()
 
@@ -247,7 +235,32 @@ class Order(models.Model):
         ordering = ['-created_at']
 
     def __str__(self):
-        return f"{self.order_id} - {self.customer_name} (₹{self.total_amount})"
+        cust_name = self.customer.username if self.customer else f"Customer #{self.customer_id}"
+        return f"{self.order_number} - {cust_name} (₹{self.total_amount})"
+
+    @property
+    def order_id(self):
+        return self.order_number
+
+    @order_id.setter
+    def order_id(self, val):
+        self.order_number = val
+
+    @property
+    def user(self):
+        return self.customer
+
+    @user.setter
+    def user(self, val):
+        self.customer = val
+
+    @property
+    def delivery_address(self):
+        return self.shipping_address
+
+    @delivery_address.setter
+    def delivery_address(self, val):
+        self.shipping_address = val
 
     def to_dict(self):
         items_mgr = getattr(self, 'items', None)
@@ -260,50 +273,68 @@ class Order(models.Model):
             formatted_dt = str(created_at_dt or '')
             created_at_iso = str(created_at_dt or '')
 
-        status_val = str(getattr(self, 'status', 'pending') or 'pending')
+        status_val = str(getattr(self, 'status', 'Pending') or 'Pending')
         stat_lower = status_val.lower().replace(' ', '_')
         stat_display = self.get_status_display() if hasattr(self, 'get_status_display') else status_val
-        payment_status_str = str(getattr(self, 'payment_status', 'pending') or 'pending')
         order_pk = getattr(self, 'id', getattr(self, 'pk', None))
-
-        subtotal_val = float(str(getattr(self, 'subtotal', 0) or 0))
-        shipping_fee_val = float(str(getattr(self, 'shipping_fee', 0) or 0))
         total_amount_val = float(str(getattr(self, 'total_amount', 0) or 0))
+
+        cust = getattr(self, 'customer', None)
+        cust_id = getattr(self, 'customer_id', None)
+        cust_name = ''
+        cust_email = ''
+        cust_phone = ''
+        if cust:
+            cust_name = getattr(cust, 'get_full_name', lambda: '')() or cust.first_name or cust.username
+            cust_email = cust.email or ''
+            if hasattr(cust, 'profile') and cust.profile:
+                cust_phone = getattr(cust.profile, 'phone_number', '') or ''
+
+        if not cust_name:
+            cust_name = f"Customer #{cust_id}" if cust_id else "Guest Customer"
+
+        ord_num = str(getattr(self, 'order_number', order_pk))
+        ship_addr = str(getattr(self, 'shipping_address', '') or '')
 
         return {
             'id': order_pk,
             'rawId': order_pk,
-            'order_id': str(self.order_id),
-            'orderId': str(self.order_id),
-            'customer_name': self.customer_name,
-            'customerName': self.customer_name,
-            'customer': self.customer_name,
-            'customer_email': self.customer_email or '',
-            'customerEmail': self.customer_email or '',
-            'customer_phone': self.customer_phone,
-            'customerPhone': self.customer_phone,
-            'delivery_address': self.delivery_address,
-            'deliveryAddress': self.delivery_address,
-            'city': self.city,
-            'state': self.state,
-            'pincode': self.pincode,
-            'payment_method': self.payment_method,
-            'paymentMethod': self.payment_method,
-            'payment_method_display': self.payment_method,
-            'payment_status': payment_status_str.lower(),
-            'paymentStatus': self.payment_status,
+            'order_id': ord_num,
+            'orderId': ord_num,
+            'order_number': ord_num,
+            'orderNumber': ord_num,
+            'customer_id': cust_id,
+            'customerId': cust_id,
+            'customer_name': cust_name,
+            'customerName': cust_name,
+            'customer': cust_name,
+            'customer_email': cust_email,
+            'customerEmail': cust_email,
+            'customer_phone': cust_phone,
+            'customerPhone': cust_phone,
+            'shipping_address': ship_addr,
+            'shippingAddress': ship_addr,
+            'delivery_address': ship_addr,
+            'deliveryAddress': ship_addr,
+            'city': 'Gwalior',
+            'state': 'Madhya Pradesh',
+            'pincode': '',
+            'payment_method': 'Online',
+            'paymentMethod': 'Online',
+            'payment_status': 'paid',
+            'paymentStatus': 'Paid',
             'status': stat_lower,
             'status_display': stat_display,
-            'subtotal': subtotal_val,
-            'shipping_fee': shipping_fee_val,
-            'shippingFee': shipping_fee_val,
+            'subtotal': total_amount_val,
+            'shipping_fee': 0.0,
+            'shippingFee': 0.0,
             'total_amount': total_amount_val,
             'total': total_amount_val,
-            'tracking_number': self.tracking_number or '',
-            'trackingNumber': self.tracking_number or '',
-            'estimated_delivery': self.estimated_delivery or '',
-            'estimatedDelivery': self.estimated_delivery or '',
-            'notes': self.notes or '',
+            'tracking_number': '',
+            'trackingNumber': '',
+            'estimated_delivery': '',
+            'estimatedDelivery': '',
+            'notes': '',
             'created_at': created_at_iso,
             'createdAt': created_at_iso,
             'formatted_date': formatted_dt,
@@ -315,15 +346,24 @@ class Order(models.Model):
 
 
 class OrderItem(models.Model):
-    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='items')
-    product = models.ForeignKey(Product, null=True, blank=True, on_delete=models.SET_NULL, related_name='order_items')
-    product_name = models.CharField(max_length=255)
-    product_image = models.CharField(max_length=500, blank=True, null=True)
-    pot_option = models.CharField(max_length=100, blank=True, null=True)
-    size_option = models.CharField(max_length=100, blank=True, null=True)
-    unit_price = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    id = models.BigAutoField(primary_key=True)
+    order = models.ForeignKey(
+        Order,
+        on_delete=models.CASCADE,
+        related_name='items',
+        db_column='order_id'
+    )
+    product = models.ForeignKey(
+        Product,
+        null=True,
+        blank=True,
+        on_delete=models.CASCADE,
+        related_name='order_items',
+        db_column='product_id'
+    )
     quantity = models.PositiveIntegerField(default=1)
-    total_price = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    unit_price = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    subtotal = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
 
     objects = models.Manager()
 
@@ -332,30 +372,57 @@ class OrderItem(models.Model):
         verbose_name_plural = 'Order Items'
 
     def __str__(self):
-        return f"{self.quantity}x {self.product_name} in {self.order.order_id}"
+        prod_name = self.product.name if self.product else f"Product #{self.product_id}"
+        ord_num = self.order.order_number if self.order else f"Order #{self.order_id}"
+        return f"{self.quantity}x {prod_name} in {ord_num}"
+
+    @property
+    def total_price(self):
+        return self.subtotal
+
+    @total_price.setter
+    def total_price(self, val):
+        self.subtotal = val
+
+    @property
+    def product_name(self):
+        return self.product.name if self.product else 'Plant'
+
+    @property
+    def product_image(self):
+        return self.product.image if (self.product and self.product.image) else '/images/plants/snake_plant.png'
 
     def to_dict(self):
         item_pk = getattr(self, 'id', getattr(self, 'pk', None))
+        ord_id_val = getattr(self, 'order_id', None)
         prod_id_val = getattr(self, 'product_id', None)
         unit_price_val = float(str(getattr(self, 'unit_price', 0) or 0))
-        total_price_val = float(str(getattr(self, 'total_price', 0) or 0))
+        subtotal_val = float(str(getattr(self, 'subtotal', getattr(self, 'total_price', 0)) or 0))
+
+        prod = getattr(self, 'product', None)
+        p_name = prod.name if prod else f'Product #{prod_id_val}'
+        p_img = prod.image if (prod and getattr(prod, 'image', None)) else '/images/plants/snake_plant.png'
+
         return {
             'id': item_pk,
+            'order_id': ord_id_val,
+            'orderId': ord_id_val,
             'productId': prod_id_val,
             'product_id': prod_id_val,
-            'name': self.product_name,
-            'product_name': self.product_name,
-            'image': self.product_image or '/images/plants/snake_plant.png',
-            'product_image': self.product_image or '/images/plants/snake_plant.png',
-            'pot': self.pot_option or 'Standard Pot',
-            'pot_option': self.pot_option or 'Standard Pot',
-            'size': self.size_option or 'Medium',
-            'size_option': self.size_option or 'Medium',
+            'name': p_name,
+            'product_name': p_name,
+            'image': p_img,
+            'product_image': p_img,
+            'pot': 'Standard Pot',
+            'pot_option': 'Standard Pot',
+            'size': 'Medium',
+            'size_option': 'Medium',
             'price': unit_price_val,
             'unit_price': unit_price_val,
             'quantity': self.quantity,
-            'total': total_price_val,
-            'total_price': total_price_val,
+            'subtotal': subtotal_val,
+            'total': subtotal_val,
+            'total_price': subtotal_val,
         }
 
 

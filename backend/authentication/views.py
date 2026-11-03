@@ -644,32 +644,20 @@ def create_order(request):
 
         user = request.user if request.user.is_authenticated else None
 
-        # Build address string
-        address = customer.get('address', '')
-        city = customer.get('city', '')
-        state = customer.get('state', '')
-        pincode = customer.get('pincode', '')
-
-        # Calculate subtotal
-        subtotal = float(total) - float(shipping_fee) if total else 0.0
+        # Build shipping address string
+        address = customer.get('address', '').strip()
+        city = customer.get('city', '').strip()
+        state = customer.get('state', '').strip()
+        pincode = customer.get('pincode', '').strip()
+        addr_parts = [p for p in [address, city, state, pincode] if p]
+        shipping_address = ', '.join(addr_parts) or address or 'Not specified'
 
         order = Order.objects.create(
-            order_id=order_id,
-            user=user,
-            customer_name=customer.get('name', 'Customer'),
-            customer_email=customer.get('email', ''),
-            customer_phone=customer.get('phone', ''),
-            delivery_address=address,
-            city=city,
-            state=state,
-            pincode=pincode,
-            payment_method=payment_method,
-            payment_status='paid' if payment_method in ['online', 'upi', 'card'] else 'pending',
-            status='pending',
-            subtotal=Decimal(str(max(0, subtotal))),
-            shipping_fee=Decimal(str(shipping_fee)),
+            customer=user,
+            order_number=order_id,
             total_amount=Decimal(str(total)),
-            notes=customer.get('notes', '')
+            status='Pending',
+            shipping_address=shipping_address
         )
 
         for itm in items_data:
@@ -677,18 +665,14 @@ def create_order(request):
             prod = Product.objects.filter(id=prod_id).first() if prod_id else None
             qty = max(1, int(itm.get('quantity', 1)))
             unit_price = Decimal(str(itm.get('price', prod.price if prod else 0)))
-            total_price = unit_price * qty
+            subtotal = unit_price * qty
 
             OrderItem.objects.create(
                 order=order,
                 product=prod,
-                product_name=itm.get('name', prod.name if prod else 'Plant'),
-                product_image=itm.get('image', prod.image if prod else ''),
-                pot_option=itm.get('selectedPot', itm.get('pot_option', '')),
-                size_option=itm.get('selectedSize', itm.get('size_option', '')),
-                unit_price=unit_price,
                 quantity=qty,
-                total_price=total_price
+                unit_price=unit_price,
+                subtotal=subtotal
             )
 
             # Stock management handled via dedicated stock table
@@ -696,11 +680,11 @@ def create_order(request):
 
         return JsonResponse({
             'status': 'success',
-            'orderId': order.order_id,
+            'orderId': order.order_number,
             'order': order.to_dict(),
             'itemsCount': len(items_data),
             'total': float(order.total_amount),
-            'message': f'Order {order.order_id} placed successfully! Tracking link generated.'
+            'message': f'Order {order.order_number} placed successfully! Tracking link generated.'
         }, status=201)
     except Exception as e:
         return JsonResponse({'status': 'error', 'message': str(e)}, status=400)
@@ -749,12 +733,11 @@ def admin_orders_list(request):
     if search_query:
         from django.db.models import Q
         qs = qs.filter(
-            Q(order_id__icontains=search_query) |
-            Q(customer_name__icontains=search_query) |
-            Q(customer_email__icontains=search_query) |
-            Q(customer_phone__icontains=search_query) |
-            Q(city__icontains=search_query) |
-            Q(tracking_number__icontains=search_query)
+            Q(order_number__icontains=search_query) |
+            Q(shipping_address__icontains=search_query) |
+            Q(customer__username__icontains=search_query) |
+            Q(customer__first_name__icontains=search_query) |
+            Q(customer__email__icontains=search_query)
         )
 
     # Sort
@@ -800,7 +783,7 @@ def admin_order_detail(request, pk):
     if isinstance(pk, int) or (isinstance(pk, str) and pk.isdigit()):
         order = Order.objects.filter(pk=int(pk)).prefetch_related('items', 'items__product').first()
     if not order and isinstance(pk, str):
-        order = Order.objects.filter(order_id__iexact=pk).prefetch_related('items', 'items__product').first()
+        order = Order.objects.filter(order_number__iexact=pk).prefetch_related('items', 'items__product').first()
 
     if not order:
         return JsonResponse({'status': 'error', 'message': f'Order #{pk} not found.'}, status=404)
@@ -828,7 +811,7 @@ def admin_order_update_status(request, pk):
     if isinstance(pk, int) or (isinstance(pk, str) and pk.isdigit()):
         order = Order.objects.filter(pk=int(pk)).first()
     if not order and isinstance(pk, str):
-        order = Order.objects.filter(order_id__iexact=pk).first()
+        order = Order.objects.filter(order_number__iexact=pk).first()
 
     if not order:
         return JsonResponse({'status': 'error', 'message': f'Order #{pk} not found.'}, status=404)
@@ -843,24 +826,26 @@ def admin_order_update_status(request, pk):
     if 'status' in payload:
         new_status = str(payload['status']).strip().lower()
         if new_status in valid_statuses:
-            order.status = new_status
-            if new_status == 'delivered' and order.payment_status == 'pending' and order.payment_method == 'cod':
-                order.payment_status = 'paid'
+            status_map = {
+                'pending': 'Pending',
+                'processing': 'Processing',
+                'dispatched': 'Dispatched',
+                'out_for_delivery': 'Out for Delivery',
+                'delivered': 'Delivered',
+                'cancelled': 'Cancelled',
+            }
+            order.status = status_map.get(new_status, 'Pending')
 
-    if 'payment_status' in payload:
-        order.payment_status = str(payload['payment_status']).strip().lower()
-
-    if 'tracking_number' in payload:
-        order.tracking_number = str(payload['tracking_number']).strip()
-
-    if 'notes' in payload:
-        order.notes = str(payload['notes']).strip()
+    if 'shipping_address' in payload:
+        order.shipping_address = str(payload['shipping_address']).strip()
+    elif 'delivery_address' in payload:
+        order.shipping_address = str(payload['delivery_address']).strip()
 
     order.save()
 
     return JsonResponse({
         'status': 'success',
-        'message': f'Order {order.order_id} updated to status "{order.get_status_display()}".',
+        'message': f'Order {order.order_number} updated to status "{order.get_status_display()}".',
         'order': order.to_dict()
     })
 
@@ -895,12 +880,9 @@ def admin_customers_list(request):
     # Calculate real order counts and spend for all customers
     user_orders_map = {}
     for ord in Order.objects.all():
-        if ord.user_id:
-            user_orders_map.setdefault(ord.user_id, []).append(ord)
-        elif ord.customer_email:
-            matched_u = next((u for u in all_users if u.email and u.email.lower() == ord.customer_email.lower()), None)
-            if matched_u:
-                user_orders_map.setdefault(matched_u.id, []).append(ord)
+        cid = getattr(ord, 'customer_id', None)
+        if cid:
+            user_orders_map.setdefault(cid, []).append(ord)
 
     customers_with_orders = sum(1 for uid in user_orders_map if len(user_orders_map[uid]) > 0)
 
@@ -1002,9 +984,8 @@ def admin_customer_detail(request, pk):
     role_name = u.profile.role.name if (hasattr(u, 'profile') and u.profile and u.profile.role) else 'Customer'
     full_name = f"{u.first_name} {u.last_name}".strip() or u.username
 
-    from django.db.models import Q
     customer_orders = Order.objects.filter(
-        Q(user=u) | (Q(customer_email__iexact=u.email) if u.email else Q(pk__isnull=True))
+        customer=u
     ).prefetch_related('items').order_by('-created_at')
 
     orders_data = [o.to_dict() for o in customer_orders]

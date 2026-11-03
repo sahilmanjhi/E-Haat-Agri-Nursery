@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth import get_user_model
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
-from .models import Category, Product, Role, UserProfile, Cart, CartItem
+from .models import Category, Product, Role, UserProfile, Cart, CartItem, Order, OrderItem
 
 User = get_user_model()
 
@@ -83,6 +83,24 @@ class CartItemAdmin(admin.ModelAdmin):
     search_fields = ('cart__id', 'product__name', 'cart__user__username')
     readonly_fields = ('added_at',)
 
+class OrderItemInline(admin.TabularInline):
+    model = OrderItem
+    extra = 0
+    readonly_fields = ('subtotal',)
 
 
+@admin.register(Order)
+class OrderAdmin(admin.ModelAdmin):
+    list_display = ('id', 'order_number', 'customer', 'total_amount', 'status', 'created_at')
+    list_filter = ('status', 'created_at')
+    search_fields = ('order_number', 'customer__username', 'customer__email', 'shipping_address')
+    readonly_fields = ('created_at',)
+    inlines = (OrderItemInline,)
+
+
+@admin.register(OrderItem)
+class OrderItemAdmin(admin.ModelAdmin):
+    list_display = ('id', 'order', 'product', 'quantity', 'unit_price', 'subtotal')
+    list_filter = ('order__status',)
+    search_fields = ('order__order_number', 'product__name')
 
