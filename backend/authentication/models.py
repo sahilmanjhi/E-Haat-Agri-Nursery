@@ -90,6 +90,23 @@ class Product(models.Model):
     def __str__(self):
         return self.name
 
+    @property
+    def stock(self):
+        try:
+            return self.stocks.first()
+        except Exception:
+            return None
+
+    @property
+    def stock_quantity(self):
+        stk = self.stock
+        return stk.quantity if stk else 25
+
+    @property
+    def in_stock(self):
+        stk = self.stock
+        return (stk.quantity > 0) if stk else True
+
     def to_dict(self):
         cat_name = self.category.name if self.category else 'Indoor Plants'
         prod_id = getattr(self, 'id', getattr(self, 'pk', 1))
@@ -113,10 +130,10 @@ class Product(models.Model):
             'createdAt': created_at_str,
             'rating': self.rating,
             'reviewsCount': self.reviews_count,
-            'inStock': getattr(self, 'in_stock', True),
-            'stockQuantity': getattr(self, 'stock_quantity', 25),
-            'reorderLevel': getattr(self, 'reorder_level', 5),
-            'stockStatus': 'In Stock',
+            'inStock': self.in_stock,
+            'stockQuantity': self.stock_quantity,
+            'reorderLevel': (self.stock.reorder_level if self.stock else getattr(self, 'reorder_level', 5)),
+            'stockStatus': 'Out of Stock' if not self.in_stock else ('Low Stock' if self.stock_quantity <= (self.stock.reorder_level if self.stock else getattr(self, 'reorder_level', 5)) else 'In Stock'),
             'light': self.light or 'Bright Indirect Sunlight',
             'water': self.water or 'Once a week',
             'petFriendly': self.pet_friendly,
@@ -142,6 +159,66 @@ class Product(models.Model):
                 'humidity': 'Tolerates normal room humidity.',
                 'fertilizer': 'Feed with organic liquid fertilizer once a month.'
             }
+        }
+
+
+
+class Stock(models.Model):
+    id = models.BigAutoField(primary_key=True)
+    product = models.ForeignKey(
+        Product,
+        on_delete=models.CASCADE,
+        related_name='stocks',
+        db_column='product_id'
+    )
+    quantity = models.IntegerField(default=0)
+    reserved_quantity = models.IntegerField(default=0)
+    reorder_level = models.IntegerField(default=5)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    objects = models.Manager()
+
+    class Meta:
+        verbose_name = 'Stock'
+        verbose_name_plural = 'Stocks'
+        ordering = ['-updated_at']
+
+    def __str__(self):
+        prod = getattr(self, 'product', None)
+        prod_name = prod.name if prod else f"Product #{getattr(self, 'product_id', 'Unknown')}"
+        return f"Stock for {prod_name}: {self.quantity} units (Reserved: {self.reserved_quantity})"
+
+    @property
+    def available_quantity(self):
+        return max(0, self.quantity - self.reserved_quantity)
+
+    @property
+    def is_low_stock(self):
+        return self.quantity <= self.reorder_level
+
+    @property
+    def is_out_of_stock(self):
+        return self.quantity <= 0
+
+    def to_dict(self):
+        stock_pk = getattr(self, 'id', getattr(self, 'pk', None))
+        prod_id = getattr(self, 'product_id', None)
+        updated_at_dt = getattr(self, 'updated_at', None)
+        updated_at_str = updated_at_dt.isoformat() if hasattr(updated_at_dt, 'isoformat') else (str(updated_at_dt) if updated_at_dt else None)
+
+        return {
+            'id': stock_pk,
+            'product_id': prod_id,
+            'productId': prod_id,
+            'quantity': self.quantity,
+            'reserved_quantity': self.reserved_quantity,
+            'reservedQuantity': self.reserved_quantity,
+            'reorder_level': self.reorder_level,
+            'reorderLevel': self.reorder_level,
+            'available_quantity': self.available_quantity,
+            'availableQuantity': self.available_quantity,
+            'updated_at': updated_at_str,
+            'updatedAt': updated_at_str,
         }
 
 
@@ -531,5 +608,15 @@ def create_or_update_user_profile(sender, instance, created, **kwargs):
     if created:
         UserProfile.objects.get_or_create(user=instance)
 
-
+@receiver(post_save, sender=Product)
+def create_or_update_product_stock(sender, instance, created, **kwargs):
+    if created:
+        Stock.objects.get_or_create(
+            product=instance,
+            defaults={
+                'quantity': 25,
+                'reserved_quantity': 0,
+                'reorder_level': getattr(instance, 'reorder_level', 5),
+            }
+        )
 

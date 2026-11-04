@@ -12,7 +12,7 @@ from django.views.decorators.http import require_http_methods
 from django.contrib.auth import authenticate, login, logout, get_user_model
 from django.contrib.auth.decorators import login_required
 from django.core.mail import send_mail
-from .models import Category, Product, Role, UserProfile, Order, OrderItem
+from .models import Category, Product, Stock, Role, UserProfile, Order, OrderItem, Cart, CartItem
 
 # Ephemeral in-memory caches for verification codes (No database storage)
 _EPHEMERAL_OTP_STORE = {}    # { phone: { 'otp': code, 'expires_at': ts } }
@@ -457,10 +457,20 @@ def product_toggle_stock(request, pk):
     if not product:
         return JsonResponse({'status': 'error', 'message': f'Product #{pk} not found.'}, status=404)
 
+    stock_obj, _ = Stock.objects.get_or_create(
+        product=product,
+        defaults={'quantity': 25, 'reserved_quantity': 0, 'reorder_level': getattr(product, 'reorder_level', 5)}
+    )
+    if stock_obj.quantity > 0:
+        stock_obj.quantity = 0
+    else:
+        stock_obj.quantity = 25
+    stock_obj.save()
+
     return JsonResponse({
         'status': 'success',
         'id': str(product.id),
-        'in_stock': True,
+        'in_stock': stock_obj.quantity > 0,
         'message': f'Stock status for "{product.name}" updated.',
         'product': product.to_dict()
     })
@@ -553,15 +563,41 @@ def inventory_quick_update(request, pk):
     except (json.JSONDecodeError, UnicodeDecodeError):
         return JsonResponse({'status': 'error', 'message': 'Invalid JSON body.'}, status=400)
 
-    # Reorder level update (Stock quantity managed via dedicated stock table)
-    if 'reorder_level' in payload or 'reorderLevel' in payload:
+    stock_obj, _ = Stock.objects.get_or_create(
+        product=product,
+        defaults={'quantity': 25, 'reserved_quantity': 0, 'reorder_level': getattr(product, 'reorder_level', 5)}
+    )
+
+    if 'quantity' in payload or 'stockQuantity' in payload:
         try:
-            val = payload.get('reorder_level', payload.get('reorderLevel'))
-            product.reorder_level = max(0, int(val))
+            val = payload.get('quantity', payload.get('stockQuantity'))
+            stock_obj.quantity = max(0, int(val))
+        except (ValueError, TypeError):
+            pass
+    elif 'delta' in payload:
+        try:
+            delta_val = int(payload.get('delta', 0))
+            stock_obj.quantity = max(0, stock_obj.quantity + delta_val)
         except (ValueError, TypeError):
             pass
 
-    product.save()
+    if 'reserved_quantity' in payload or 'reservedQuantity' in payload:
+        try:
+            r_val = payload.get('reserved_quantity', payload.get('reservedQuantity'))
+            stock_obj.reserved_quantity = max(0, int(r_val))
+        except (ValueError, TypeError):
+            pass
+
+    if 'reorder_level' in payload or 'reorderLevel' in payload:
+        try:
+            val = payload.get('reorder_level', payload.get('reorderLevel'))
+            stock_obj.reorder_level = max(0, int(val))
+            product.reorder_level = stock_obj.reorder_level
+            product.save()
+        except (ValueError, TypeError):
+            pass
+
+    stock_obj.save()
 
     return JsonResponse({
         'status': 'success',
@@ -597,14 +633,34 @@ def inventory_batch_restock(request):
             if pid:
                 p = Product.objects.filter(pk=pid).first()
                 if p:
-                    # Stock managed separately via dedicated stock table
-                    updated_count += 1
+                    stock_obj, _ = Stock.objects.get_or_create(
+                        product=p,
+                        defaults={'quantity': 25, 'reserved_quantity': 0, 'reorder_level': getattr(p, 'reorder_level', 5)}
+                    )
+                    qty = item.get('quantity', 25)
+                    try:
+                        stock_obj.quantity = max(0, int(qty))
+                        stock_obj.save()
+                        updated_count += 1
+                    except (ValueError, TypeError):
+                        pass
 
     elif 'ids' in payload and isinstance(payload['ids'], list):
+        add_units = 25
+        try:
+            add_units = int(payload.get('add_units', 25))
+        except (ValueError, TypeError):
+            add_units = 25
+
         for pid in payload['ids']:
             p = Product.objects.filter(pk=pid).first()
             if p:
-                # Stock managed separately via dedicated stock table
+                stock_obj, _ = Stock.objects.get_or_create(
+                    product=p,
+                    defaults={'quantity': 25, 'reserved_quantity': 0, 'reorder_level': getattr(p, 'reorder_level', 5)}
+                )
+                stock_obj.quantity = max(0, stock_obj.quantity + add_units)
+                stock_obj.save()
                 updated_count += 1
 
     return JsonResponse({

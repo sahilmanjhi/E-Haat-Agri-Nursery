@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth import get_user_model
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
-from .models import Category, Product, Role, UserProfile, Cart, CartItem, Order, OrderItem
+from .models import Category, Product, Stock, Role, UserProfile, Cart, CartItem, Order, OrderItem
 
 User = get_user_model()
 
@@ -14,11 +14,27 @@ class CategoryAdmin(admin.ModelAdmin):
     list_filter = ('created_at', 'updated_at')
 
 
+class StockInline(admin.TabularInline):
+    model = Stock
+    extra = 0
+    fields = ('quantity', 'reserved_quantity', 'reorder_level', 'updated_at')
+    readonly_fields = ('updated_at',)
+
+
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
     list_display = ('name', 'category', 'price', 'discount', 'rating', 'created_at')
     search_fields = ('name', 'botanical_name', 'description')
     list_filter = ('category', 'tag', 'room')
+    inlines = (StockInline,)
+
+
+@admin.register(Stock)
+class StockAdmin(admin.ModelAdmin):
+    list_display = ('id', 'product', 'quantity', 'reserved_quantity', 'reorder_level', 'updated_at')
+    list_filter = ('updated_at',)
+    search_fields = ('product__name',)
+    readonly_fields = ('updated_at',)
 
 
 

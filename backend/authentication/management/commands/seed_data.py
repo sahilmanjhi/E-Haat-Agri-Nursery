@@ -1,5 +1,5 @@
 from django.core.management.base import BaseCommand
-from authentication.models import Category, Product
+from authentication.models import Category, Product, Stock
 
 
 class Command(BaseCommand):
@@ -265,6 +265,10 @@ class Command(BaseCommand):
                     'image': p_data.get('image'),
                     'image_hover': p_data.get('image_hover'),
                 }
+            )
+            Stock.objects.get_or_create(
+                product=prod,
+                defaults={'quantity': 25, 'reserved_quantity': 0, 'reorder_level': getattr(prod, 'reorder_level', 5)}
             )
             status = "Created" if created else "Existing"
             self.stdout.write(f"[{status}] Product: {prod.name} (Rs {prod.price})")
