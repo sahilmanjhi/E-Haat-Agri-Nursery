@@ -40,7 +40,14 @@ class Category(models.Model):
         return self.name
 
     def to_dict(self):
-        prod_count = self.products.count() if hasattr(self, 'products') else 0
+        prod_count = 0
+        if getattr(self, 'pk', None) is not None:
+            products_mgr = getattr(self, 'products', None)
+            if products_mgr is not None:
+                try:
+                    prod_count = products_mgr.count()
+                except Exception:
+                    prod_count = 0
         raw_id = getattr(self, 'id', getattr(self, 'pk', None))
         return {
             'id': self.name,
@@ -90,31 +97,51 @@ class Product(models.Model):
     def __str__(self):
         return self.name
 
+    category_id: int | None
+
     @property
     def stock(self):
-        try:
-            return self.stocks.first()
-        except Exception:
+        if getattr(self, 'pk', None) is None:
             return None
+        stocks_mgr = getattr(self, 'stocks', None)
+        if stocks_mgr is not None:
+            try:
+                return stocks_mgr.first()
+            except Exception:
+                return None
+        return None
 
     @property
     def stock_quantity(self):
         stk = self.stock
-        return stk.quantity if stk else 25
+        return getattr(stk, 'quantity', 25) if stk is not None else 25
 
     @property
     def in_stock(self):
         stk = self.stock
-        return (stk.quantity > 0) if stk else True
+        return (getattr(stk, 'quantity', 0) > 0) if stk is not None else True
 
     def to_dict(self):
-        cat_name = self.category.name if self.category else 'Indoor Plants'
+        cat = getattr(self, 'category', None)
+        cat_name = getattr(cat, 'name', 'Indoor Plants') if cat is not None else 'Indoor Plants'
         prod_id = getattr(self, 'id', getattr(self, 'pk', 1))
         price_val = float(str(self.price))
         orig_price_val = float(str(self.original_price)) if self.original_price else price_val
 
         created_at_dt = getattr(self, 'created_at', None)
         created_at_str = created_at_dt.strftime('%Y-%m-%d') if hasattr(created_at_dt, 'strftime') else None
+
+        stk = self.stock
+        stk_qty = getattr(stk, 'quantity', 25) if stk is not None else 25
+        stk_reorder = getattr(stk, 'reorder_level', None) if stk is not None else None
+        eff_reorder = stk_reorder if stk_reorder is not None else getattr(self, 'reorder_level', 5)
+        in_stock_val = stk_qty > 0 if stk is not None else True
+        if not in_stock_val or stk_qty <= 0:
+            stock_status_str = 'Out of Stock'
+        elif stk_qty <= eff_reorder:
+            stock_status_str = 'Low Stock'
+        else:
+            stock_status_str = 'In Stock'
 
         return {
             'id': str(prod_id),
@@ -130,10 +157,10 @@ class Product(models.Model):
             'createdAt': created_at_str,
             'rating': self.rating,
             'reviewsCount': self.reviews_count,
-            'inStock': self.in_stock,
-            'stockQuantity': self.stock_quantity,
-            'reorderLevel': (self.stock.reorder_level if self.stock else getattr(self, 'reorder_level', 5)),
-            'stockStatus': 'Out of Stock' if not self.in_stock else ('Low Stock' if self.stock_quantity <= (self.stock.reorder_level if self.stock else getattr(self, 'reorder_level', 5)) else 'In Stock'),
+            'inStock': in_stock_val,
+            'stockQuantity': stk_qty,
+            'reorderLevel': eff_reorder,
+            'stockStatus': stock_status_str,
             'light': self.light or 'Bright Indirect Sunlight',
             'water': self.water or 'Once a week',
             'petFriendly': self.pet_friendly,
@@ -164,6 +191,8 @@ class Product(models.Model):
 
 
 class Stock(models.Model):
+    product_id: int | None
+
     id = models.BigAutoField(primary_key=True)
     product = models.ForeignKey(
         Product,
@@ -275,11 +304,16 @@ class UserProfile(models.Model):
         verbose_name_plural = 'User Profiles'
 
     def __str__(self):
-        role_name = self.role.name if self.role else 'No Role'
-        phone = f" - {self.phone_number}" if self.phone_number else ""
-        return f"{self.user} ({role_name}){phone}"
+        role_obj = getattr(self, 'role', None)
+        role_name = getattr(role_obj, 'name', 'No Role') if role_obj else 'No Role'
+        phone_val = getattr(self, 'phone_number', '') or ''
+        phone = f" - {phone_val}" if phone_val else ""
+        user_val = getattr(self, 'user', 'Unknown')
+        return f"{user_val} ({role_name}){phone}"
 
 class Order(models.Model):
+    customer_id: int | None
+
     STATUS_CHOICES = [
         ('Pending', 'Pending'),
         ('Processing', 'Processing'),
@@ -341,8 +375,14 @@ class Order(models.Model):
         self.shipping_address = val
 
     def to_dict(self):
-        items_mgr = getattr(self, 'items', None)
-        item_list = [item.to_dict() for item in items_mgr.all()] if items_mgr is not None else []
+        item_list = []
+        if getattr(self, 'pk', None) is not None:
+            items_mgr = getattr(self, 'items', None)
+            if items_mgr is not None:
+                try:
+                    item_list = [item.to_dict() for item in items_mgr.all()]
+                except Exception:
+                    item_list = []
         created_at_dt = getattr(self, 'created_at', None)
         if hasattr(created_at_dt, 'strftime'):
             formatted_dt = created_at_dt.strftime('%d %b %Y, %I:%M %p')
@@ -449,11 +489,16 @@ class OrderItem(models.Model):
         verbose_name = 'Order Item'
         verbose_name_plural = 'Order Items'
 
+    order_id: int | None
+    product_id: int | None
+
     def __str__(self):
         prod_id = getattr(self, 'product_id', None)
-        prod_name = self.product.name if self.product else f"Product #{prod_id or 'Unknown'}"
+        prod = getattr(self, 'product', None)
+        prod_name = getattr(prod, 'name', None) if prod else f"Product #{prod_id or 'Unknown'}"
         ord_id = getattr(self, 'order_id', None)
-        ord_num = self.order.order_number if self.order else f"Order #{ord_id or 'Unknown'}"
+        ord_obj = getattr(self, 'order', None)
+        ord_num = getattr(ord_obj, 'order_number', None) if ord_obj else f"Order #{ord_id or 'Unknown'}"
         return f"{self.quantity}x {prod_name} in {ord_num}"
 
     @property
@@ -548,6 +593,9 @@ class Cart(models.Model):
 
 
 class CartItem(models.Model):
+    cart_id: int | None
+    product_id: int | None
+
     id = models.BigAutoField(primary_key=True)
     cart = models.ForeignKey(
         Cart,
