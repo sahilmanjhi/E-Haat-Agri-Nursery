@@ -192,6 +192,9 @@ class Product(models.Model):
 
 class Stock(models.Model):
     product_id: int | None
+    quantity: int
+    reserved_quantity: int
+    reorder_level: int
 
     id = models.BigAutoField(primary_key=True)
     product = models.ForeignKey(
@@ -215,19 +218,26 @@ class Stock(models.Model):
     def __str__(self):
         prod = getattr(self, 'product', None)
         prod_name = prod.name if prod else f"Product #{getattr(self, 'product_id', 'Unknown')}"
-        return f"Stock for {prod_name}: {self.quantity} units (Reserved: {self.reserved_quantity})"
+        qty = getattr(self, 'quantity', 0)
+        reserved = getattr(self, 'reserved_quantity', 0)
+        return f"Stock for {prod_name}: {qty} units (Reserved: {reserved})"
 
     @property
     def available_quantity(self):
-        return max(0, self.quantity - self.reserved_quantity)
+        qty = int(getattr(self, 'quantity', 0) or 0)
+        reserved = int(getattr(self, 'reserved_quantity', 0) or 0)
+        return max(0, qty - reserved)
 
     @property
     def is_low_stock(self):
-        return self.quantity <= self.reorder_level
+        qty = int(getattr(self, 'quantity', 0) or 0)
+        reorder = int(getattr(self, 'reorder_level', 5) or 5)
+        return qty <= reorder
 
     @property
     def is_out_of_stock(self):
-        return self.quantity <= 0
+        qty = int(getattr(self, 'quantity', 0) or 0)
+        return qty <= 0
 
     def to_dict(self):
         stock_pk = getattr(self, 'id', getattr(self, 'pk', None))
