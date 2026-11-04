@@ -192,9 +192,6 @@ class Product(models.Model):
 
 class Stock(models.Model):
     product_id: int | None
-    quantity: int
-    reserved_quantity: int
-    reorder_level: int
 
     id = models.BigAutoField(primary_key=True)
     product = models.ForeignKey(
