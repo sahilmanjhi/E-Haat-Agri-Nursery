@@ -80,24 +80,19 @@ class UserProfileAdmin(admin.ModelAdmin):
 class CartItemInline(admin.TabularInline):
     model = CartItem
     extra = 0
-    readonly_fields = ('added_at',)
 
 
 @admin.register(Cart)
 class CartAdmin(admin.ModelAdmin):
-    list_display = ('id', 'user', 'is_active', 'created_at', 'updated_at')
-    list_filter = ('is_active', 'created_at', 'updated_at')
+    list_display = ('id', 'user')
     search_fields = ('user__username', 'user__email')
-    readonly_fields = ('created_at', 'updated_at')
     inlines = (CartItemInline,)
 
 
 @admin.register(CartItem)
 class CartItemAdmin(admin.ModelAdmin):
-    list_display = ('id', 'cart', 'product', 'quantity', 'added_at')
-    list_filter = ('added_at',)
+    list_display = ('id', 'cart', 'product', 'quantity')
     search_fields = ('cart__id', 'product__name', 'cart__user__username')
-    readonly_fields = ('added_at',)
 
 class OrderItemInline(admin.TabularInline):
     model = OrderItem
