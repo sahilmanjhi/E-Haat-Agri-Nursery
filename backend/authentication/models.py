@@ -191,7 +191,6 @@ class Product(models.Model):
 
 
 class Stock(models.Model):
-    product_id: int | None
 
     id = models.BigAutoField(primary_key=True)
     product = models.ForeignKey(
@@ -241,18 +240,24 @@ class Stock(models.Model):
         prod_id = getattr(self, 'product_id', None)
         updated_at_dt = getattr(self, 'updated_at', None)
         updated_at_str = updated_at_dt.isoformat() if hasattr(updated_at_dt, 'isoformat') else (str(updated_at_dt) if updated_at_dt else None)
+        qty = int(getattr(self, 'quantity', 0) or 0)
+        reserved = int(getattr(self, 'reserved_quantity', 0) or 0)
+        reorder = int(getattr(self, 'reorder_level', 5) or 5)
+        avail = int(getattr(self, 'available_quantity', max(0, qty - reserved)) or 0)
 
         return {
             'id': stock_pk,
             'product_id': prod_id,
             'productId': prod_id,
-            'quantity': self.quantity,
-            'reserved_quantity': self.reserved_quantity,
-            'reservedQuantity': self.reserved_quantity,
-            'reorder_level': self.reorder_level,
-            'reorderLevel': self.reorder_level,
-            'available_quantity': self.available_quantity,
-            'availableQuantity': self.available_quantity,
+            'quantity': qty,
+            'reserved_quantity': reserved,
+            'reservedQuantity': reserved,
+            'reorder_level': reorder,
+            'reorderLevel': reorder,
+            'available_quantity': avail,
+            'availableQuantity': avail,
+            'is_low_stock': self.is_low_stock,
+            'is_out_of_stock': self.is_out_of_stock,
             'updated_at': updated_at_str,
             'updatedAt': updated_at_str,
         }

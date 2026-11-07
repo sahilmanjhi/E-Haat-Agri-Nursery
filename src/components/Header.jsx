@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { CATEGORIES, PRODUCTS } from '../data/products';
 import AnnouncementBar from './AnnouncementBar';
+import { categoryToSlug } from '../utils/categoryUtils';
 
 const NAV_DROPDOWNS = {
   "all": {
@@ -154,7 +155,10 @@ export default function Header({
   user,
   onOpenAuth,
   onLogout,
-  onOpenOrders
+  onOpenOrders,
+  onNavigate,
+  currentPath = (typeof window !== 'undefined' ? window.location.pathname : '/'),
+  categories = []
 }) {
   const [pincode, setPincode] = useState('474001');
   const [showPincodeModal, setShowPincodeModal] = useState(false);
@@ -250,41 +254,46 @@ export default function Header({
     }, 50);
   };
 
-  const handleCategorySelect = (filterKey) => {
-    setActiveCategory(filterKey);
-    setOpenDropdown(null);
-    scrollToProducts();
-  };
-
-  const handleMouseEnter = (catId) => {
-    if (window.innerWidth > 992) {
-      clearTimeout(hoverTimeoutRef.current);
-      setOpenDropdown(catId);
+  const handleLogoClick = () => {
+    if (onNavigate) {
+      onNavigate('/');
+    } else if (setActiveCategory) {
+      setActiveCategory('all');
     }
   };
 
-  const handleMouseLeave = () => {
-    if (window.innerWidth > 992) {
-      hoverTimeoutRef.current = setTimeout(() => {
-        setOpenDropdown(null);
-      }, 150);
+  const handleCategoryClick = (cat) => {
+    const catName = typeof cat === 'string' ? cat : (cat.name || cat.id);
+    const slug = categoryToSlug(catName);
+    const targetUrl = slug === 'all' ? '/collections/all' : `/collections/${slug}`;
+    if (onNavigate) {
+      onNavigate(targetUrl);
+    } else if (setActiveCategory) {
+      setActiveCategory(catName);
+      scrollToProducts();
     }
   };
 
-  const handleNavClick = (e, catId) => {
-    if (window.innerWidth <= 992) {
-      // Toggle dropdown on mobile
-      e.preventDefault();
-      setOpenDropdown(prev => prev === catId ? null : catId);
-    } else {
-      // Direct category click on desktop
-      handleCategorySelect(catId);
-    }
-  };
+  const isCatActive = (cat) => {
+    const catName = typeof cat === 'string' ? cat : (cat.name || cat.id);
+    const slug = categoryToSlug(catName);
 
-  const isCatActive = (catId) => {
-    if (catId === 'all') return activeCategory === 'all';
-    return activeCategory === catId || (activeCategory.includes(':') && activeCategory.startsWith(catId));
+    if (currentPath && currentPath.startsWith('/collections')) {
+      const match = currentPath.match(/^\/collections(?:\/([^\/?#]+))?\/?$/);
+      const urlSlug = match ? (match[1] || 'all').toLowerCase() : 'all';
+      if (urlSlug === slug) return true;
+      if (slug === 'flowers' && (urlSlug === 'flowers' || urlSlug === 'flowering-plants')) return true;
+      if (slug === 'fruits-plants' && (urlSlug === 'fruits-plants' || urlSlug === 'outdoor-plants')) return true;
+      if (slug === 'vegetables-crops' && (urlSlug === 'vegetables-crops' || urlSlug === 'seeds')) return true;
+      return false;
+    }
+
+    if (slug === 'all') return !activeCategory || activeCategory === 'all';
+    return (
+      activeCategory === catName ||
+      activeCategory === (cat.id || '') ||
+      categoryToSlug(activeCategory) === slug
+    );
   };
 
   return (
@@ -301,7 +310,7 @@ export default function Header({
               {/* Logo & Co-Branding Header */}
               <div
                 className="brand-logo-wrapper"
-                onClick={() => handleCategorySelect('all')}
+                onClick={handleLogoClick}
               >
                 {/* ITM University Official Logo */}
                 <img
@@ -533,94 +542,24 @@ export default function Header({
             </div>
           </div>
 
-          {/* 3. Category Links Navbar with Dropdowns */}
+          {/* 3. Category Links Navbar - Navigates directly to /collections/:slug with NO dropdown */}
           <nav className="category-nav" ref={navRef}>
             <div className="container nav-container">
               <ul className="nav-links">
-                {CATEGORIES.map(cat => {
-                  const hasDropdown = Boolean(NAV_DROPDOWNS[cat.id]);
-                  const isOpen = openDropdown === cat.id;
+                {(categories && categories.length > 0 ? categories : CATEGORIES).map(cat => {
+                  const catObj = typeof cat === 'string' ? { id: cat, name: cat } : cat;
+                  const isActive = isCatActive(catObj);
 
                   return (
-                    <li
-                      key={cat.id}
-                      className="nav-item-li"
-                      onMouseEnter={() => handleMouseEnter(cat.id)}
-                      onMouseLeave={handleMouseLeave}
-                    >
+                    <li key={catObj.id || catObj.name} className="nav-item-li">
                       <button
-                        className={`nav-item-btn ${isCatActive(cat.id) ? 'active' : ''} ${isOpen ? 'open' : ''}`}
-                        onClick={(e) => handleNavClick(e, cat.id)}
-                        aria-expanded={isOpen}
+                        type="button"
+                        className={`nav-item-btn ${isActive ? 'active' : ''}`}
+                        onClick={() => handleCategoryClick(catObj)}
+                        title={`View ${catObj.name} Collection`}
                       >
-                        <span className="nav-text">{cat.name}</span>
-                        {hasDropdown && (
-                          <ChevronDown
-                            size={14}
-                            className={`nav-chevron ${isOpen ? 'rotated' : ''}`}
-                          />
-                        )}
+                        <span className="nav-text">{catObj.name}</span>
                       </button>
-
-                      {/* Dropdown Menu Panel */}
-                      {hasDropdown && isOpen && (
-                        <div
-                          className={`nav-dropdown-menu ${cat.id === 'all' || cat.id === 'Indoor Plants' ? 'mega-wide' : ''}`}
-                          onMouseEnter={() => handleMouseEnter(cat.id)}
-                          onMouseLeave={handleMouseLeave}
-                        >
-                          <div className="dropdown-inner">
-                            <div className="dropdown-columns">
-                              {NAV_DROPDOWNS[cat.id].columns.map((col, cIdx) => (
-                                <div key={cIdx} className="dropdown-column">
-                                  <h4 className="dropdown-col-title">{col.header}</h4>
-                                  <ul className="dropdown-items-list">
-                                    {col.items.map((item, iIdx) => {
-                                      const count = getProductCount(item.filter);
-                                      const isSelected = activeCategory === item.filter;
-
-                                      return (
-                                        <li key={iIdx}>
-                                          <button
-                                            type="button"
-                                            className={`dropdown-link-item ${isSelected ? 'selected' : ''}`}
-                                            onClick={() => handleCategorySelect(item.filter)}
-                                          >
-                                            <div className="link-content">
-                                              <span className="link-label">{item.label}</span>
-                                              {item.subtitle && (
-                                                <span className="link-subtitle">{item.subtitle}</span>
-                                              )}
-                                            </div>
-                                            {count > 0 && (
-                                              <span className="link-badge-count">{count}</span>
-                                            )}
-                                          </button>
-                                        </li>
-                                      );
-                                    })}
-                                  </ul>
-                                </div>
-                              ))}
-                            </div>
-
-                            {/* Dropdown Footer */}
-                            <div className="dropdown-footer">
-                              <button
-                                type="button"
-                                className="dropdown-view-all-btn"
-                                onClick={() => handleCategorySelect(cat.id)}
-                              >
-                                <span>Explore All {cat.name}</span>
-                                <ChevronRight size={14} />
-                              </button>
-                              <span className="dropdown-delivery-note">
-                                🌱 Express Delivery Available • 100% Guaranteed Fresh
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      )}
                     </li>
                   );
                 })}

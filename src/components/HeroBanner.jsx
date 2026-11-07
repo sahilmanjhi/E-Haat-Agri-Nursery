@@ -2,13 +2,9 @@ import React from 'react';
 import { ArrowRight, Sparkles, ShieldCheck, Truck, MessageCircle, Star } from 'lucide-react';
 
 export default function HeroBanner({ onExploreCategory }) {
-  const scrollToProducts = (category = 'all') => {
+  const handleExplore = (category = 'all') => {
     if (onExploreCategory) {
       onExploreCategory(category);
-    }
-    const target = document.getElementById('products') || document.getElementById('categories-section');
-    if (target) {
-      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
   };
 
@@ -38,7 +34,7 @@ export default function HeroBanner({ onExploreCategory }) {
             <div className="ugaoo-hero-actions">
               <button 
                 className="ugaoo-btn-primary"
-                onClick={() => scrollToProducts('all')}
+                onClick={() => handleExplore('all')}
                 id="hero-shop-plants-btn"
               >
                 <span>Shop Plants</span>
@@ -47,10 +43,10 @@ export default function HeroBanner({ onExploreCategory }) {
 
               <button 
                 className="ugaoo-btn-secondary"
-                onClick={() => scrollToProducts('bestsellers')}
+                onClick={() => handleExplore('Indoor Plants')}
                 id="hero-explore-bestsellers-btn"
               >
-                <span>Explore Best Sellers</span>
+                <span>Explore Indoor Plants</span>
               </button>
             </div>
 

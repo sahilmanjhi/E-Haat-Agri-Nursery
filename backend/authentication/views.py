@@ -215,6 +215,8 @@ def product_list(request):
         cat_instance = None
         cat_input = payload.get('category_id') or payload.get('categoryId') or payload.get('category')
         if cat_input:
+            if isinstance(cat_input, dict):
+                cat_input = cat_input.get('id') or cat_input.get('name')
             if isinstance(cat_input, int) or (isinstance(cat_input, str) and cat_input.isdigit()):
                 cat_instance = Category.objects.filter(id=int(cat_input)).first()
             if not cat_instance:
@@ -245,6 +247,23 @@ def product_list(request):
             description=payload.get('description') or '',
             image=payload.get('image') or '/images/plants/snake_plant.png',
             image_hover=payload.get('image_hover') or payload.get('imageHover') or payload.get('image') or '/images/plants/snake_plant.png'
+        )
+
+        # Create stock record in database
+        initial_stock = 25
+        if 'stock_quantity' in payload or 'stockQuantity' in payload or 'quantity' in payload:
+            try:
+                initial_stock = max(0, int(payload.get('stock_quantity', payload.get('stockQuantity', payload.get('quantity', 25)))))
+            except (ValueError, TypeError):
+                initial_stock = 25
+        elif payload.get('in_stock') is False or payload.get('inStock') is False:
+            initial_stock = 0
+
+        Stock.objects.create(
+            product=product,
+            quantity=initial_stock,
+            reserved_quantity=0,
+            reorder_level=product.reorder_level
         )
 
         return JsonResponse({
@@ -377,6 +396,8 @@ def product_detail(request, pk):
         cat_input = payload.get('category_id') or payload.get('categoryId') or payload.get('category')
         if cat_input is not None:
             cat_instance = None
+            if isinstance(cat_input, dict):
+                cat_input = cat_input.get('id') or cat_input.get('name')
             if isinstance(cat_input, int) or (isinstance(cat_input, str) and cat_input.isdigit()):
                 cat_instance = Category.objects.filter(id=int(cat_input)).first()
             if not cat_instance:
@@ -426,6 +447,28 @@ def product_detail(request, pk):
                 pass
 
         product.save()
+
+        # Update associated Stock in database
+        stock_obj, _ = Stock.objects.get_or_create(
+            product=product,
+            defaults={'quantity': 25, 'reserved_quantity': 0, 'reorder_level': getattr(product, 'reorder_level', 5)}
+        )
+        if 'in_stock' in payload or 'inStock' in payload:
+            in_stk = bool(payload.get('in_stock', payload.get('inStock')))
+            if in_stk and stock_obj.quantity <= 0:
+                stock_obj.quantity = 25
+            elif not in_stk:
+                stock_obj.quantity = 0
+            stock_obj.save()
+
+        if 'stock_quantity' in payload or 'stockQuantity' in payload or 'quantity' in payload:
+            try:
+                qty_val = max(0, int(payload.get('stock_quantity', payload.get('stockQuantity', payload.get('quantity', 0)))))
+                stock_obj.quantity = qty_val
+                stock_obj.save()
+            except (ValueError, TypeError):
+                pass
+
         return JsonResponse({
             'status': 'success',
             'message': f'Product "{product.name}" updated successfully!',
@@ -684,9 +727,33 @@ def role_list(request):
 
 
 @csrf_exempt
-@require_http_methods(["POST"])
+@require_http_methods(["GET", "POST"])
 def create_order(request):
-    """Place an order from the frontend checkout and persist to database."""
+    """
+    GET: Return orders for customer (by logged in user, phone, or email).
+    POST: Place an order from the frontend checkout and persist to database.
+    """
+    if request.method == "GET":
+        orders = Order.objects.none()
+        if hasattr(request, 'user') and getattr(request.user, 'is_authenticated', False):
+            orders = Order.objects.filter(customer=request.user).order_by('-created_at')
+        else:
+            phone = request.GET.get('phone', '').strip()
+            email = request.GET.get('email', '').strip()
+            if phone:
+                orders = Order.objects.filter(shipping_address__icontains=phone).order_by('-created_at')
+            elif email:
+                orders = Order.objects.filter(customer__email__iexact=email).order_by('-created_at')
+            else:
+                orders = Order.objects.all().order_by('-created_at')[:15]
+
+        orders_list = [o.to_dict() for o in orders]
+        return JsonResponse({
+            'status': 'success',
+            'count': len(orders_list),
+            'orders': orders_list
+        })
+
     try:
         payload = json.loads(request.body.decode('utf-8'))
         items_data = payload.get('items', [])
@@ -698,7 +765,7 @@ def create_order(request):
         import uuid
         order_id = f"EHAAT-{uuid.uuid4().hex[:8].upper()}"
 
-        user = request.user if request.user.is_authenticated else None
+        user = request.user if (hasattr(request, 'user') and getattr(request.user, 'is_authenticated', False)) else None
 
         # Build shipping address string
         address = customer.get('address', '').strip()
@@ -731,8 +798,14 @@ def create_order(request):
                 subtotal=subtotal
             )
 
-            # Stock management handled via dedicated stock table
-            pass
+            # Deduct inventory stock in database
+            if prod:
+                stock_obj, _ = Stock.objects.get_or_create(
+                    product=prod,
+                    defaults={'quantity': 25, 'reserved_quantity': 0, 'reorder_level': getattr(prod, 'reorder_level', 5)}
+                )
+                stock_obj.quantity = max(0, stock_obj.quantity - qty)
+                stock_obj.save()
 
         return JsonResponse({
             'status': 'success',
@@ -1647,7 +1720,7 @@ def logout_user(request):
 @require_http_methods(["GET"])
 def current_user(request):
     """Return the currently authenticated user, or 401 if not logged in."""
-    if request.user.is_authenticated:
+    if hasattr(request, 'user') and getattr(request.user, 'is_authenticated', False):
         return JsonResponse({
             'status': 'success',
             'user': _serialize_user(request.user),

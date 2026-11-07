@@ -10,25 +10,25 @@ export const SHOP_CATEGORIES = [
     img: "/images/categories/indoor_plants.jpg"
   },
   {
-    id: "Outdoor Plants",
-    name: "Outdoor Plants",
-    subtitle: "Sun-loving palms & garden flora",
-    badge: "Trending",
+    id: "Flowers",
+    name: "Flowers",
+    subtitle: "Year-round blossoms & elegance",
+    badge: "Fresh Blooms",
+    img: "/images/plants/peace_lily.png"
+  },
+  {
+    id: "Fruits Plants",
+    name: "Fruits Plants",
+    subtitle: "Terrace garden & fruit trees",
+    badge: "High Yield",
     img: "/images/plants/areca_palm.jpg"
   },
   {
-    id: "Flowering Plants",
-    name: "Flowering Plants",
-    subtitle: "Year-round blossoms & elegance",
-    badge: "Pure Elegance",
-    img: "/images/plants/peace_lily.jpg"
-  },
-  {
-    id: "Seeds",
-    name: "Seeds & Microgreens",
-    subtitle: "100% Non-GMO organic heirloom",
-    badge: "High Yield",
-    img: "/images/categories/seeds.jpg"
+    id: "Vegetables Crops",
+    name: "Vegetables Crops",
+    subtitle: "100% Non-GMO organic heirloom seeds",
+    badge: "Kitchen Garden",
+    img: "/images/plants/heirloom_seeds.jpg"
   },
   {
     id: "Pots & Planters",
@@ -52,10 +52,6 @@ export default function CategoryCircles({ onSelectCategory }) {
   const handleCardClick = (catId) => {
     if (onSelectCategory) {
       onSelectCategory(catId);
-    }
-    const productsEl = document.getElementById('products');
-    if (productsEl) {
-      productsEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
   };
 

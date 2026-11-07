@@ -33,6 +33,8 @@ import OurStory from './components/OurStory';
 import PlantCareSimplified from './components/PlantCareSimplified';
 import PromoBanner from './components/PromoBanner';
 import ProductCollections from './components/ProductCollections';
+import CollectionPage from './components/CollectionPage';
+import { categoryToSlug } from './utils/categoryUtils';
 
 import { PRODUCTS as DEFAULT_PRODUCTS, CATEGORIES as DEFAULT_CATEGORIES } from './data/products';
 import { fetchProducts, fetchCategories, checkBackendHealth, fetchCurrentUser, logoutUser } from './services/api';
@@ -82,26 +84,51 @@ export default function App() {
     }
   };
 
-  // Fetch live products & categories from Django backend
-  useEffect(() => {
-    async function loadData() {
-      try {
-        const health = await checkBackendHealth();
-        setBackendStatus(health);
+  // Fetch live products & categories from Django backend with auto-sync
+  const loadData = async () => {
+    try {
+      const health = await checkBackendHealth();
+      setBackendStatus(health);
 
-        const [cats, prods] = await Promise.all([
-          fetchCategories(),
-          fetchProducts()
-        ]);
-        if (cats && cats.length > 0) setCategories(cats);
-        if (prods && prods.length > 0) setProducts(prods);
-      } catch (err) {
-        console.warn('Backend load error:', err);
-      } finally {
-        setIsLoading(false);
-      }
+      const [cats, prods] = await Promise.all([
+        fetchCategories(),
+        fetchProducts()
+      ]);
+      if (cats && cats.length > 0) setCategories(cats);
+      if (prods && prods.length > 0) setProducts(prods);
+    } catch (err) {
+      console.warn('Backend load error:', err);
+    } finally {
+      setIsLoading(false);
     }
+  };
+
+  useEffect(() => {
     loadData();
+  }, [currentPath]);
+
+  // Real-time synchronization listeners:
+  // 1. Same-window admin actions (ehaat_data_changed event)
+  // 2. Cross-tab admin actions (storage event on ehaat_data_sync_timestamp)
+  // 3. Tab focus (when switching between admin and customer storefront)
+  // 4. Background polling heartbeat (every 8 seconds)
+  useEffect(() => {
+    const handleDataSync = () => {
+      loadData();
+    };
+
+    window.addEventListener('ehaat_data_changed', handleDataSync);
+    window.addEventListener('focus', handleDataSync);
+    window.addEventListener('storage', handleDataSync);
+
+    const syncInterval = setInterval(handleDataSync, 8000);
+
+    return () => {
+      window.removeEventListener('ehaat_data_changed', handleDataSync);
+      window.removeEventListener('focus', handleDataSync);
+      window.removeEventListener('storage', handleDataSync);
+      clearInterval(syncInterval);
+    };
   }, []);
 
   // Check if user is already logged in (session cookie)
@@ -226,6 +253,7 @@ export default function App() {
   const navigate = (path) => {
     window.history.pushState({}, '', path);
     setCurrentPath(path);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   // Dedicated route for Admin Login Page
@@ -341,13 +369,18 @@ export default function App() {
     );
   }
 
+  // Route detection for dedicated Category Collections (/collections or /collections/:slug)
+  const collectionMatch = currentPath.match(/^\/collections(?:\/([^\/?#]+))?\/?$/);
+  const isCollectionRoute = Boolean(collectionMatch);
+  const collectionSlug = collectionMatch ? (collectionMatch[1] || 'all') : null;
+
   return (
     <div className="app-container">
 
       {/* 1. Main Header Navigation */}
       <Header
-        activeCategory={activeCategory}
-        setActiveCategory={setActiveCategory}
+        activeCategory={isCollectionRoute ? collectionSlug : activeCategory}
+        setActiveCategory={(cat) => navigate('/collections/' + categoryToSlug(cat))}
         cartCount={cartItems.reduce((acc, i) => acc + i.quantity, 0)}
         wishlistCount={wishlistItems.length}
         onOpenCart={() => setIsCartOpen(true)}
@@ -358,16 +391,34 @@ export default function App() {
         onOpenAuth={() => setIsAuthOpen(true)}
         onLogout={handleLogout}
         onOpenOrders={handleOpenOrders}
+        onNavigate={navigate}
+        currentPath={currentPath}
+        categories={categories}
       />
 
-      {/* 2. Ugaoo-Inspired Hero Section */}
-      <HeroBanner onExploreCategory={(cat) => setActiveCategory(cat)} />
+      {isCollectionRoute ? (
+        <CollectionPage
+          categorySlug={collectionSlug}
+          products={products}
+          categories={categories}
+          onNavigate={navigate}
+          onQuickView={(p) => setQuickViewProduct(p)}
+          onAddToCart={handleAddToCart}
+          wishlistItems={wishlistItems}
+          onToggleWishlist={handleToggleWishlist}
+          user={currentUser}
+          onOpenAuth={() => setIsAuthOpen(true)}
+        />
+      ) : (
+        <>
+          {/* 2. Ugaoo-Inspired Hero Section */}
+      <HeroBanner onExploreCategory={(cat) => navigate('/collections/' + categoryToSlug(cat))} />
 
       {/* 3. Shop by Category (6 photo cards) */}
-      <CategoryCircles onSelectCategory={(cat) => setActiveCategory(cat)} />
+      <CategoryCircles onSelectCategory={(cat) => navigate('/collections/' + categoryToSlug(cat))} />
 
       {/* 4. Promotional Banners */}
-      <PromoBanner onExploreCategory={(cat) => setActiveCategory(cat)} />
+      <PromoBanner onExploreCategory={(cat) => navigate('/collections/' + categoryToSlug(cat))} />
 
       {/* 5. Product Collections (Best Sellers, Trending Plants, New Arrivals, Seeds & Essentials) */}
       <ProductCollections
@@ -376,7 +427,7 @@ export default function App() {
         onAddToCart={handleAddToCart}
         wishlistItems={wishlistItems}
         onToggleWishlist={handleToggleWishlist}
-        onViewAll={(cat) => setActiveCategory(cat)}
+        onViewAll={(cat) => navigate('/collections/' + categoryToSlug(cat))}
         user={currentUser}
         onOpenAuth={() => setIsAuthOpen(true)}
       />
@@ -488,10 +539,10 @@ export default function App() {
       )}
 
       {/* 6. Section: Transform Your Home (Shop by Room) */}
-      <TransformHome onSelectCategory={(cat) => setActiveCategory(cat)} />
+      <TransformHome onSelectCategory={(cat) => navigate('/collections/' + categoryToSlug(cat))} />
 
       {/* 7. Section: Green Gifting, Made Easy */}
-      <GreenGifting onSelectCategory={(cat) => setActiveCategory(cat)} />
+      <GreenGifting onSelectCategory={(cat) => navigate('/collections/' + categoryToSlug(cat))} />
 
       {/* 8. Section: Our Story (Brand Vision) */}
       <OurStory />
@@ -508,8 +559,11 @@ export default function App() {
       {/* 12. FAQ & Plant Doctor Hotline */}
       <PlantDoctorFAQ />
 
+        </>
+      )}
+
       {/* 13. Footer */}
-      <Footer onSelectCategory={(cat) => setActiveCategory(cat)} onOpenOrders={handleOpenOrders} />
+      <Footer onSelectCategory={(cat) => navigate('/collections/' + categoryToSlug(cat))} onOpenOrders={handleOpenOrders} />
 
       {/* 14. Floating WhatsApp Chat Widget */}
       <FloatingWhatsApp />

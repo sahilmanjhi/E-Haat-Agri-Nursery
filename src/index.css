@@ -11016,3 +11016,411 @@ img, video, iframe, svg {
 
 
 
+
+
+/* ==========================================================================
+   COLLECTION PAGE STYLES (Ugaoo-Inspired Dedicated Category Pages)
+   ========================================================================== */
+
+.collection-page-wrapper {
+  background-color: #FAFCFB;
+  min-height: 100vh;
+  padding-bottom: 60px;
+}
+
+/* 1. Breadcrumbs */
+.collection-breadcrumbs-bar {
+  background: #FFFFFF;
+  border-bottom: 1px solid #E2E8F0;
+  padding: 12px 0;
+}
+
+.collection-breadcrumbs {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 0.85rem;
+  color: #64748B;
+}
+
+.breadcrumb-item-btn {
+  display: inline-flex;
+  align-items: center;
+  background: none;
+  border: none;
+  color: #64748B;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.breadcrumb-item-btn:hover {
+  color: #0A4C36;
+  background-color: #EBF5F0;
+}
+
+.breadcrumb-chevron {
+  color: #94A3B8;
+  flex-shrink: 0;
+}
+
+.breadcrumb-current-item {
+  color: #0A4C36;
+  font-weight: 700;
+}
+
+/* 2. Collection Hero Banner */
+.collection-banner-section {
+  padding: 32px 0 20px 0;
+}
+
+.collection-banner-card {
+  background: linear-gradient(135deg, #0A4C36 0%, #063827 100%);
+  border-radius: 18px;
+  padding: 40px 36px;
+  color: #FFFFFF;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 10px 25px -5px rgba(10, 76, 54, 0.2);
+}
+
+.collection-banner-card::after {
+  content: '';
+  position: absolute;
+  top: -40px;
+  right: -40px;
+  width: 220px;
+  height: 220px;
+  background: radial-gradient(circle, rgba(254, 208, 47, 0.15) 0%, transparent 70%);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.collection-banner-text {
+  position: relative;
+  z-index: 2;
+  max-width: 780px;
+}
+
+.collection-badge-pill {
+  display: inline-block;
+  background: rgba(254, 208, 47, 0.2);
+  color: #FED02F;
+  border: 1px solid rgba(254, 208, 47, 0.4);
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  padding: 4px 12px;
+  border-radius: 9999px;
+  margin-bottom: 12px;
+}
+
+.collection-main-title {
+  font-size: clamp(1.8rem, 4vw, 2.6rem);
+  font-weight: 800;
+  line-height: 1.15;
+  color: #FFFFFF;
+  margin: 0 0 10px 0;
+}
+
+.collection-main-desc {
+  font-size: clamp(0.92rem, 1.8vw, 1.05rem);
+  color: rgba(255, 255, 255, 0.85);
+  line-height: 1.5;
+  margin: 0 0 24px 0;
+}
+
+.collection-banner-highlights {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.banner-highlight-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(6px);
+  padding: 6px 14px;
+  border-radius: 9999px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #FFFFFF;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+}
+
+.banner-highlight-chip .highlight-icon {
+  color: #FED02F;
+}
+
+/* 3. Category Switcher Tabs */
+.collection-categories-nav-section {
+  padding: 10px 0 20px 0;
+}
+
+.collection-categories-scroll {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  overflow-x: auto;
+  white-space: nowrap;
+  padding: 6px 2px;
+  scrollbar-width: thin;
+  scrollbar-color: #CADFD4 transparent;
+  -webkit-overflow-scrolling: touch;
+}
+
+.collection-cat-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 10px 20px;
+  border-radius: 9999px;
+  background: #FFFFFF;
+  border: 1.5px solid #E2E8F0;
+  color: #334155;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.collection-cat-pill:hover {
+  border-color: #0A4C36;
+  color: #0A4C36;
+  background: #F4F9F6;
+  transform: translateY(-1px);
+}
+
+.collection-cat-pill.active {
+  background: #0A4C36;
+  border-color: #0A4C36;
+  color: #FFFFFF;
+  box-shadow: 0 4px 12px rgba(10, 76, 54, 0.22);
+}
+
+/* 4. Filter & Sort Toolbar */
+.collection-toolbar-section {
+  padding: 0 0 24px 0;
+}
+
+.collection-toolbar-container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  background: #FFFFFF;
+  padding: 14px 20px;
+  border-radius: 12px;
+  border: 1px solid #E2E8F0;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.02);
+}
+
+.collection-subfilters {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.subfilters-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #64748B;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.subfilter-chips-list {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.subfilter-chip {
+  background: #F1F5F9;
+  border: 1px solid transparent;
+  color: #475569;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.subfilter-chip:hover {
+  background: #E2E8F0;
+  color: #0F172A;
+}
+
+.subfilter-chip.active {
+  background: #EBF5F0;
+  border-color: #0A4C36;
+  color: #0A4C36;
+  font-weight: 700;
+}
+
+.collection-sort-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.sort-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #64748B;
+}
+
+.collection-sort-select {
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 1.5px solid #CBD5E1;
+  background: #FFFFFF;
+  color: #0A4C36;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+
+.collection-sort-select:focus {
+  border-color: #0A4C36;
+}
+
+/* 5. Products Grid */
+.collection-products-section {
+  padding-bottom: 40px;
+}
+
+/* Empty State */
+.collection-empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  background: #FFFFFF;
+  border-radius: 16px;
+  border: 1.5px dashed #CBD5E1;
+  max-width: 600px;
+  margin: 20px auto;
+}
+
+.empty-state-icon {
+  width: 72px;
+  height: 72px;
+  background: #EBF5F0;
+  color: #0A4C36;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 16px auto;
+}
+
+.empty-state-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #0F172A;
+  margin-bottom: 8px;
+}
+
+.empty-state-desc {
+  font-size: 0.9rem;
+  color: #64748B;
+  line-height: 1.5;
+  margin-bottom: 24px;
+}
+
+.empty-state-actions {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+/* 6. Trust Section */
+.collection-trust-section {
+  padding: 40px 0 20px 0;
+  border-top: 1px solid #E2E8F0;
+  margin-top: 20px;
+}
+
+.collection-trust-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 20px;
+}
+
+.collection-trust-card {
+  background: #FFFFFF;
+  border: 1px solid #E2E8F0;
+  border-radius: 12px;
+  padding: 24px 20px;
+  text-align: center;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.collection-trust-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.05);
+}
+
+.trust-icon-box {
+  font-size: 2rem;
+  margin-bottom: 12px;
+}
+
+.collection-trust-card h4 {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #0A4C36;
+  margin-bottom: 6px;
+}
+
+.collection-trust-card p {
+  font-size: 0.82rem;
+  color: #64748B;
+  line-height: 1.5;
+  margin: 0;
+}
+
+@media (max-width: 992px) {
+  .collection-trust-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .collection-banner-card {
+    padding: 28px 20px;
+  }
+  .collection-toolbar-container {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .collection-sort-wrapper {
+    margin-left: 0;
+    justify-content: space-between;
+  }
+  .collection-trust-grid {
+    grid-template-columns: 1fr;
+  }
+}

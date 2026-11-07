@@ -1,6 +1,19 @@
 import { PRODUCTS as FALLBACK_PRODUCTS, CATEGORIES as FALLBACK_CATEGORIES } from '../data/products';
 
 const API_BASE = '/api';
+/**
+ * Broadcast notification that backend database state has changed,
+ * so the customer website and all open tabs immediately reload live data.
+ */
+export function notifyDataChanged() {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('ehaat_data_changed'));
+    try {
+      localStorage.setItem('ehaat_data_sync_timestamp', Date.now().toString());
+    } catch (e) {}
+  }
+}
+
 
 /**
  * Health check: verify if the Django backend is online and responding.
@@ -9,7 +22,9 @@ export async function checkBackendHealth() {
   try {
     const res = await fetch(`${API_BASE}/health/`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return await res.json();
+    const result = await res.json();
+    notifyDataChanged();
+    return result;
   } catch (err) {
     console.warn('[Backend] Health check failed, falling back to local mode:', err.message);
     return { status: 'offline', connected: false };
@@ -90,6 +105,30 @@ export async function fetchRoles() {
 /**
  * Submit order to Django backend.
  */
+
+/**
+ * Fetch orders placed by the current user from the Django database.
+ */
+export async function fetchUserOrders({ phone = '', email = '' } = {}) {
+  try {
+    const params = new URLSearchParams();
+    if (phone) params.append('phone', phone);
+    if (email) params.append('email', email);
+
+    const res = await fetch(`${API_BASE}/orders/?${params.toString()}`, {
+      credentials: 'include'
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    if (data && Array.isArray(data.orders)) {
+      return data.orders;
+    }
+  } catch (err) {
+    console.warn('[Backend] Fetch live customer orders failed:', err.message);
+  }
+  return null;
+}
+
 export async function submitOrder(orderData) {
   try {
     const res = await fetch(`${API_BASE}/orders/`, {
@@ -98,7 +137,9 @@ export async function submitOrder(orderData) {
       body: JSON.stringify(orderData)
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return await res.json();
+    const result = await res.json();
+    notifyDataChanged();
+    return result;
   } catch (err) {
     console.warn('[Backend] Order submission fallback:', err.message);
     return {
@@ -436,6 +477,7 @@ export async function createProduct(productData) {
         message: data.message || 'Failed to create product.'
       };
     }
+    notifyDataChanged();
     return data;
   } catch (err) {
     return {
@@ -465,6 +507,7 @@ export async function updateProduct(id, productData) {
         message: data.message || 'Failed to update product.'
       };
     }
+    notifyDataChanged();
     return data;
   } catch (err) {
     return {
@@ -492,6 +535,7 @@ export async function deleteProduct(id) {
         message: data.message || 'Failed to delete product.'
       };
     }
+    notifyDataChanged();
     return data;
   } catch (err) {
     return {
@@ -521,6 +565,7 @@ export async function toggleProductStock(id, inStock = null) {
         message: data.message || 'Failed to update stock status.'
       };
     }
+    notifyDataChanged();
     return data;
   } catch (err) {
     return {
@@ -603,6 +648,7 @@ export async function updateCategory(id, { name, description }) {
         message: data.message || 'Failed to update category.'
       };
     }
+    notifyDataChanged();
     return data;
   } catch (err) {
     return {
@@ -630,6 +676,7 @@ export async function deleteCategory(id) {
         message: data.message || 'Failed to delete category.'
       };
     }
+    notifyDataChanged();
     return data;
   } catch (err) {
     return {
