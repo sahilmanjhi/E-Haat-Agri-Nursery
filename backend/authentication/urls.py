@@ -1,5 +1,5 @@
 from django.urls import path
-from . import views
+from authentication import views
 
 urlpatterns = [
     path('health/', views.health_check, name='health_check'),
@@ -12,7 +12,16 @@ urlpatterns = [
     path('inventory/<int:pk>/update-stock/', views.inventory_quick_update, name='inventory_quick_update'),
     path('inventory/batch-restock/', views.inventory_batch_restock, name='inventory_batch_restock'),
     path('roles/', views.role_list, name='role_list'),
+
+    # Cart endpoints (Server-side user-specific cart)
+    path('cart/', views.cart_view, name='cart_view'),
+    path('cart/items/', views.cart_add_item, name='cart_add_item'),
+    path('cart/items/<int:item_id>/', views.cart_item_detail, name='cart_item_detail'),
+    path('cart/clear/', views.cart_clear, name='cart_clear'),
+
+    # Customer orders
     path('orders/', views.create_order, name='create_order'),
+    path('orders/<str:order_number>/', views.customer_order_detail, name='customer_order_detail'),
 
     # Authentication endpoints
     path('auth/register/', views.register_user, name='register_user'),

@@ -40,14 +40,19 @@ class Category(models.Model):
         return self.name
 
     def to_dict(self):
-        prod_count = 0
-        if getattr(self, 'pk', None) is not None:
-            products_mgr = getattr(self, 'products', None)
-            if products_mgr is not None:
-                try:
-                    prod_count = products_mgr.count()
-                except Exception:
+        prod_count = getattr(self, 'products_count_annotated', None)
+        if prod_count is None:
+            if getattr(self, 'pk', None) is not None:
+                products_mgr = getattr(self, 'products', None)
+                if products_mgr is not None:
+                    try:
+                        prod_count = products_mgr.count()
+                    except Exception:
+                        prod_count = 0
+                else:
                     prod_count = 0
+            else:
+                prod_count = 0
         raw_id = getattr(self, 'id', getattr(self, 'pk', None))
         return {
             'id': self.name,
@@ -103,6 +108,10 @@ class Product(models.Model):
     def stock(self):
         if getattr(self, 'pk', None) is None:
             return None
+        # Check prefetch cache first to eliminate N+1 queries
+        if hasattr(self, '_prefetched_objects_cache') and 'stocks' in self._prefetched_objects_cache:
+            stocks_list = self._prefetched_objects_cache['stocks']
+            return stocks_list[0] if stocks_list else None
         stocks_mgr = getattr(self, 'stocks', None)
         if stocks_mgr is not None:
             try:
@@ -647,6 +656,13 @@ class CartItem(models.Model):
         cart_id = getattr(self, 'cart_id', None) or (getattr(cart_obj, 'id', 'None') if cart_obj else 'None')
         qty = int(getattr(self, 'quantity', 1) or 1)
         return f"{qty}x {prod_name} in Cart #{cart_id}"
+
+    @property
+    def subtotal(self) -> float:
+        prod = getattr(self, 'product', None)
+        p_price = float(str(getattr(prod, 'price', 0) or 0)) if prod else 0.0
+        qty = int(getattr(self, 'quantity', 1) or 1)
+        return round(p_price * qty, 2)
 
     def to_dict(self):
         item_pk = getattr(self, 'id', getattr(self, 'pk', None))

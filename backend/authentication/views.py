@@ -5,8 +5,10 @@ import time
 from datetime import timedelta
 from decimal import Decimal
 from django.conf import settings
+from django.db.models import Q, Count, Sum, F
+from django.db import transaction
 from django.utils import timezone
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from django.contrib.auth import authenticate, login, logout, get_user_model
@@ -17,6 +19,27 @@ from .models import Category, Product, Stock, Role, UserProfile, Order, OrderIte
 # Ephemeral in-memory caches for verification codes (No database storage)
 _EPHEMERAL_OTP_STORE = {}    # { phone: { 'otp': code, 'expires_at': ts } }
 _EPHEMERAL_RESET_STORE = {}  # { email: { 'code': code, 'expires_at': ts } }
+
+# Server-side in-memory catalog cache with invalidation versioning
+_CATALOG_CACHE = {
+    'version': 1,
+    'categories_data': None,
+    'categories_etag': None,
+    'products_data': None,
+    'products_etag': None,
+}
+
+def invalidate_catalog_cache():
+    """
+    Increment catalog version and wipe cached payloads so future requests
+    fetch fresh database data and invalidate browser 304 ETags immediately.
+    """
+    global _CATALOG_CACHE
+    _CATALOG_CACHE['version'] += 1
+    _CATALOG_CACHE['categories_data'] = None
+    _CATALOG_CACHE['categories_etag'] = None
+    _CATALOG_CACHE['products_data'] = None
+    _CATALOG_CACHE['products_etag'] = None
 
 User = get_user_model()
 
@@ -71,6 +94,7 @@ def category_list(request):
             name__iexact=name,
             defaults={'name': name, 'description': description, 'created_by': request.user}
         )
+        invalidate_catalog_cache()
         return JsonResponse({
             'status': 'success',
             'created': created,
@@ -78,8 +102,16 @@ def category_list(request):
             'message': f'Category "{cat.name}" {"created" if created else "already exists"}.'
         }, status=201 if created else 200)
 
-    categories = Category.objects.all().order_by('name')
+    # GET: Optimized category retrieval from high-speed in-memory cache (Always HTTP 200 for clean fetch)
+    if _CATALOG_CACHE['categories_data'] is not None:
+        return JsonResponse({
+            'status': 'success',
+            'categories': _CATALOG_CACHE['categories_data']
+        })
+
+    categories = Category.objects.annotate(products_count_annotated=Count('products')).order_by('name')
     data = [cat.to_dict() for cat in categories]
+    _CATALOG_CACHE['categories_data'] = data
     return JsonResponse({'status': 'success', 'categories': data})
 
 
@@ -103,9 +135,17 @@ def category_detail(request, pk):
                 'message': 'Admin privileges required to delete categories.'
             }, status=403)
 
+        prod_count = category.products.count()
+        if prod_count > 0:
+            return JsonResponse({
+                'status': 'error',
+                'code': 'CATEGORY_HAS_PRODUCTS',
+                'message': f'Cannot delete category "{category.name}" because {prod_count} product(s) are currently associated with it. Please reassign or remove those products first.'
+            }, status=400)
+
         cat_name = category.name
-        # Any attached products will have category set to null automatically due to SET_NULL
         category.delete()
+        invalidate_catalog_cache()
         return JsonResponse({
             'status': 'success',
             'message': f'Category "{cat_name}" was successfully removed.'
@@ -141,6 +181,7 @@ def category_detail(request, pk):
             category.description = str(payload['description']).strip()
 
         category.save()
+        invalidate_catalog_cache()
         return JsonResponse({
             'status': 'success',
             'message': f'Category "{category.name}" updated successfully.',
@@ -266,6 +307,7 @@ def product_list(request):
             reorder_level=product.reorder_level
         )
 
+        invalidate_catalog_cache()
         return JsonResponse({
             'status': 'success',
             'message': f'Product "{product.name}" created successfully!',
@@ -273,35 +315,56 @@ def product_list(request):
         }, status=201)
 
     # GET: Filter and list products
-    products = Product.objects.all().select_related('category')
-
     category = request.GET.get('category')
+    tag = request.GET.get('tag')
+    room = request.GET.get('room')
+    search = request.GET.get('search')
+    sort = request.GET.get('sort', 'popular')
+
+    is_unfiltered = (
+        (not category or category == 'all') and
+        (not tag or tag == 'all') and
+        (not room or room == 'all') and
+        not search and
+        sort in ['popular', '']
+    )
+
+    # Unfiltered requests return immediately from high-speed in-memory cache (Always HTTP 200)
+    if is_unfiltered and _CATALOG_CACHE['products_data'] is not None:
+        return JsonResponse({
+            'status': 'success',
+            'count': len(_CATALOG_CACHE['products_data']),
+            'products': _CATALOG_CACHE['products_data']
+        })
+
+    products = Product.objects.all().select_related('category').prefetch_related('stocks')
+
     if category and category != 'all':
         if category.isdigit():
             products = products.filter(category__id=int(category))
         else:
-            products = products.filter(category__name__iexact=category)
+            cat_raw = category.strip()
+            cat_cleaned = cat_raw.replace('-', ' ')
+            q_filter = Q(category__name__iexact=cat_raw) | Q(category__name__iexact=cat_cleaned)
+            if cat_raw.lower() in ['flowers', 'flowering-plants', 'flower']:
+                q_filter |= Q(category__name__iexact='Flowering Plants') | Q(category__name__iexact='Flowers')
+            products = products.filter(q_filter)
 
     # Stock filtering will be handled via dedicated stock table
     stock = request.GET.get('in_stock') or request.GET.get('stock')
 
-    tag = request.GET.get('tag')
     if tag and tag != 'all':
         products = products.filter(tag__iexact=tag)
 
-    room = request.GET.get('room')
     if room and room != 'all':
         products = products.filter(room__iexact=room)
 
-    search = request.GET.get('search')
     if search:
         products = products.filter(
-            Product.objects.filter(name__icontains=search) |
-            Product.objects.filter(botanical_name__icontains=search) |
-            Product.objects.filter(description__icontains=search)
+            Q(name__icontains=search) |
+            Q(botanical_name__icontains=search) |
+            Q(description__icontains=search)
         )
-
-    sort = request.GET.get('sort', 'popular')
     if sort == 'price-low':
         products = products.order_by('price')
     elif sort == 'price-high':
@@ -316,6 +379,9 @@ def product_list(request):
         products = products.order_by('-reviews_count', '-created_at')
 
     prods_list = [p.to_dict() for p in products]
+    if is_unfiltered:
+        _CATALOG_CACHE['products_data'] = prods_list
+
     return JsonResponse({
         'status': 'success',
         'count': len(prods_list),
@@ -345,6 +411,7 @@ def product_detail(request, pk):
 
         product_name = product.name
         product.delete()
+        invalidate_catalog_cache()
         return JsonResponse({
             'status': 'success',
             'message': f'Product "{product_name}" has been permanently removed.'
@@ -469,6 +536,7 @@ def product_detail(request, pk):
             except (ValueError, TypeError):
                 pass
 
+        invalidate_catalog_cache()
         return JsonResponse({
             'status': 'success',
             'message': f'Product "{product.name}" updated successfully!',
@@ -509,6 +577,7 @@ def product_toggle_stock(request, pk):
     else:
         stock_obj.quantity = 25
     stock_obj.save()
+    invalidate_catalog_cache()
 
     return JsonResponse({
         'status': 'success',
@@ -525,8 +594,8 @@ def inventory_summary(request):
     Return comprehensive inventory telemetry metrics, categorized stock distribution,
     and live low-stock replenishment alert tracking.
     """
-    total_products = Product.objects.count()
-    all_products = list(Product.objects.all().select_related('category').order_by('category__name', 'name'))
+    all_products = list(Product.objects.all().select_related('category').prefetch_related('stocks').order_by('category__name', 'name'))
+    total_products = len(all_products)
     
     total_units = sum(getattr(p, 'stock_quantity', 25) for p in all_products)
     
@@ -641,6 +710,7 @@ def inventory_quick_update(request, pk):
             pass
 
     stock_obj.save()
+    invalidate_catalog_cache()
 
     return JsonResponse({
         'status': 'success',
@@ -706,6 +776,7 @@ def inventory_batch_restock(request):
                 stock_obj.save()
                 updated_count += 1
 
+    invalidate_catalog_cache()
     return JsonResponse({
         'status': 'success',
         'updated_count': updated_count,
@@ -728,10 +799,220 @@ def role_list(request):
 
 @csrf_exempt
 @require_http_methods(["GET", "POST"])
+def _get_or_create_cart(request):
+    """
+    Retrieve or create the user-specific Cart.
+    If authenticated, associates with request.user.
+    If guest, associates with session cart_id.
+    """
+    if hasattr(request, 'user') and getattr(request.user, 'is_authenticated', False):
+        cart, _ = Cart.objects.get_or_create(user=request.user)
+        # Migrate anonymous session cart to authenticated user if exists
+        if request.session.session_key and request.session.get('cart_id'):
+            session_cart = Cart.objects.filter(id=request.session['cart_id'], user=None).first()
+            if session_cart:
+                for s_item in session_cart.items.all():
+                    existing = cart.items.filter(product=s_item.product).first()
+                    if existing:
+                        existing.quantity += s_item.quantity
+                        existing.save()
+                    else:
+                        s_item.cart = cart
+                        s_item.save()
+                session_cart.delete()
+                request.session['cart_id'] = None
+        return cart
+    else:
+        if not request.session.session_key:
+            request.session.create()
+        session_cart_id = request.session.get('cart_id')
+        if session_cart_id:
+            cart = Cart.objects.filter(id=session_cart_id, user=None).first()
+            if cart:
+                return cart
+        cart = Cart.objects.create(user=None)
+        request.session['cart_id'] = cart.id
+        return cart
+
+
+@csrf_exempt
+def cart_view(request):
+    """
+    GET: Retrieve current user's cart with live prices and stock availability from database.
+    DELETE: Clear all items from current user's cart.
+    """
+    cart = _get_or_create_cart(request)
+
+    if request.method == "DELETE":
+        cart.items.all().delete()
+        return JsonResponse({
+            'status': 'success',
+            'message': 'Cart cleared successfully.',
+            'cart': {
+                'id': cart.id,
+                'items': [],
+                'total_items': 0,
+                'total_amount': 0.0,
+                'total': 0.0,
+            }
+        })
+
+    # GET
+    items = cart.items.select_related('product', 'product__category').prefetch_related('stocks' if hasattr(cart, 'stocks') else 'product__stocks').all()
+    items_data = []
+    cart_total = Decimal('0.00')
+    total_qty = 0
+
+    for item in items:
+        p = item.product
+        stk = p.stocks.first()
+        available_qty = stk.quantity if stk else 25
+        unit_price = p.price
+        subtotal = unit_price * item.quantity
+        cart_total += subtotal
+        total_qty += item.quantity
+
+        items_data.append({
+            'id': item.id,
+            'product_id': p.id,
+            'product': p.id,
+            'name': p.name,
+            'botanical_name': p.botanical_name or '',
+            'price': float(unit_price),
+            'quantity': item.quantity,
+            'subtotal': float(subtotal),
+            'image': p.image or '/images/plants/snake_plant.png',
+            'category': p.category.name if p.category else 'Plants',
+            'available_quantity': available_qty,
+            'in_stock': available_qty >= item.quantity,
+        })
+
+    return JsonResponse({
+        'status': 'success',
+        'cart': {
+            'id': cart.id,
+            'items': items_data,
+            'total_items': total_qty,
+            'total_amount': float(cart_total),
+            'total': float(cart_total),
+        }
+    })
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def cart_add_item(request):
+    """
+    Add a product to cart with strict server-side inventory verification.
+    Rejects with HTTP 400 if requested quantity exceeds available stock.
+    """
+    try:
+        data = json.loads(request.body.decode('utf-8'))
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return JsonResponse({'status': 'error', 'message': 'Invalid JSON body.'}, status=400)
+
+    prod_id = data.get('product_id') or data.get('productId') or data.get('product') or data.get('id')
+    qty = max(1, int(data.get('quantity', 1)))
+
+    if not prod_id:
+        return JsonResponse({'status': 'error', 'message': 'Product ID is required.'}, status=400)
+
+    product = Product.objects.filter(id=prod_id).first()
+    if not product:
+        return JsonResponse({'status': 'error', 'message': f'Product with ID {prod_id} not found.'}, status=404)
+
+    stk = product.stocks.first()
+    available = stk.quantity if stk else 25
+
+    cart = _get_or_create_cart(request)
+    existing_item = cart.items.filter(product=product).first()
+    current_in_cart = existing_item.quantity if existing_item else 0
+    new_total_qty = current_in_cart + qty
+
+    if new_total_qty > available:
+        return JsonResponse({
+            'status': 'error',
+            'code': 'INSUFFICIENT_STOCK',
+            'message': f"Insufficient stock for '{product.name}'. Available: {available}, already in cart: {current_in_cart}."
+        }, status=400)
+
+    if existing_item:
+        existing_item.quantity = new_total_qty
+        existing_item.save()
+        item_obj = existing_item
+    else:
+        item_obj = CartItem.objects.create(cart=cart, product=product, quantity=qty)
+
+    return JsonResponse({
+        'status': 'success',
+        'message': f"Added '{product.name}' to cart.",
+        'item': item_obj.to_dict(),
+    }, status=201)
+
+
+@csrf_exempt
+def cart_item_detail(request, item_id):
+    """
+    PATCH/PUT: Update quantity of a cart item with inventory validation.
+    DELETE: Remove item from cart.
+    """
+    cart = _get_or_create_cart(request)
+    item = cart.items.filter(id=item_id).first()
+    if not item:
+        return JsonResponse({'status': 'error', 'message': 'Cart item not found or does not belong to your cart.'}, status=404)
+
+    if request.method in ["PUT", "PATCH"]:
+        try:
+            data = json.loads(request.body.decode('utf-8'))
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            return JsonResponse({'status': 'error', 'message': 'Invalid JSON body.'}, status=400)
+
+        new_qty = int(data.get('quantity', 1))
+        if new_qty <= 0:
+            item.delete()
+            return JsonResponse({'status': 'success', 'message': 'Item removed from cart.'})
+
+        stk = item.product.stocks.first()
+        available = stk.quantity if stk else 25
+        if new_qty > available:
+            return JsonResponse({
+                'status': 'error',
+                'code': 'INSUFFICIENT_STOCK',
+                'message': f"Insufficient stock for '{item.product.name}'. Only {available} available in stock."
+            }, status=400)
+
+        item.quantity = new_qty
+        item.save()
+        return JsonResponse({'status': 'success', 'item': item.to_dict()})
+
+    elif request.method == "DELETE":
+        item.delete()
+        return JsonResponse({'status': 'success', 'message': 'Item removed from cart.'})
+
+    return JsonResponse({'status': 'error', 'message': 'Method not allowed.'}, status=405)
+
+
+@csrf_exempt
+@require_http_methods(["DELETE", "POST"])
+def cart_clear(request):
+    """
+    Clear all items from current user's cart.
+    """
+    cart = _get_or_create_cart(request)
+    cart.items.all().delete()
+    return JsonResponse({'status': 'success', 'message': 'Cart cleared.'})
+
+
+@csrf_exempt
 def create_order(request):
     """
-    GET: Return orders for customer (by logged in user, phone, or email).
+    GET: Return orders for customer (by authenticated user session, phone, or email).
+         Customer isolation strictly enforced: unauthenticated requests without query filters
+         receive an empty list (no leakage of other users' orders).
     POST: Place an order from the frontend checkout and persist to database.
+          Enforces inventory validation: rejects with HTTP 400 if requested quantity exceeds stock.
+          Calculates totals strictly from database Product.price (never trusts client prices).
+          Decrements inventory and clears user's Cart atomically.
     """
     if request.method == "GET":
         orders = Order.objects.none()
@@ -745,9 +1026,9 @@ def create_order(request):
             elif email:
                 orders = Order.objects.filter(customer__email__iexact=email).order_by('-created_at')
             else:
-                orders = Order.objects.all().order_by('-created_at')[:15]
+                orders = Order.objects.none()
 
-        orders_list = [o.to_dict() for o in orders]
+        orders_list = [o.to_dict() for o in orders.prefetch_related('items', 'items__product')]
         return JsonResponse({
             'status': 'success',
             'count': len(orders_list),
@@ -756,40 +1037,71 @@ def create_order(request):
 
     try:
         payload = json.loads(request.body.decode('utf-8'))
-        items_data = payload.get('items', [])
-        total = payload.get('total', 0)
-        customer = payload.get('customer', {})
-        shipping_fee = payload.get('shipping_fee', 0)
-        payment_method = payload.get('payment_method', 'cod')
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return JsonResponse({'status': 'error', 'message': 'Invalid JSON payload.'}, status=400)
 
-        import uuid
-        order_id = f"EHAAT-{uuid.uuid4().hex[:8].upper()}"
+    items_data = payload.get('items', [])
+    if not items_data:
+        return JsonResponse({'status': 'error', 'message': 'Cart is empty. Please add items before placing an order.'}, status=400)
 
-        user = request.user if (hasattr(request, 'user') and getattr(request.user, 'is_authenticated', False)) else None
+    # 1. Server-side validation of all items and inventory stock BEFORE making any changes
+    validated_items = []
+    total_amount = Decimal('0.00')
 
-        # Build shipping address string
-        address = customer.get('address', '').strip()
-        city = customer.get('city', '').strip()
-        state = customer.get('state', '').strip()
-        pincode = customer.get('pincode', '').strip()
-        addr_parts = [p for p in [address, city, state, pincode] if p]
-        shipping_address = ', '.join(addr_parts) or address or 'Not specified'
+    for itm in items_data:
+        prod_id = itm.get('id') or itm.get('product_id') or itm.get('product')
+        qty = max(1, int(itm.get('quantity', 1)))
 
+        prod = Product.objects.filter(id=prod_id).first() if prod_id else None
+        if not prod:
+            return JsonResponse({'status': 'error', 'message': f'Product with ID {prod_id} not found.'}, status=404)
+
+        stock_obj = prod.stocks.first()
+        available = stock_obj.quantity if stock_obj else 25
+
+        if qty > available:
+            return JsonResponse({
+                'status': 'error',
+                'code': 'INSUFFICIENT_STOCK',
+                'message': f"Insufficient stock for '{prod.name}'. Requested {qty}, but only {available} available in stock."
+            }, status=400)
+
+        # Calculate unit price and subtotal strictly from database
+        unit_price = prod.price
+        subtotal = unit_price * qty
+        total_amount += subtotal
+        validated_items.append((prod, qty, unit_price, subtotal, stock_obj))
+
+    customer = payload.get('customer', {})
+    shipping_fee = Decimal(str(payload.get('shipping_fee', 0) or 0))
+    grand_total = total_amount + shipping_fee
+
+    import uuid
+    order_id = f"EHAAT-{uuid.uuid4().hex[:8].upper()}"
+
+    user = request.user if (hasattr(request, 'user') and getattr(request.user, 'is_authenticated', False)) else None
+
+    # Build shipping address string
+    address = customer.get('address', '').strip()
+    city = customer.get('city', '').strip()
+    state = customer.get('state', '').strip()
+    pincode = customer.get('pincode', '').strip()
+    phone = customer.get('phone', '').strip() or (user.profile.phone_number if (user and hasattr(user, 'profile') and user.profile.phone_number) else '')
+    addr_parts = [p for p in [address, city, state, pincode] if p]
+    shipping_address = ', '.join(addr_parts) or address or 'Not specified'
+    if phone and phone not in shipping_address:
+        shipping_address = f"{shipping_address} (Phone: {phone})"
+
+    with transaction.atomic():
         order = Order.objects.create(
             customer=user,
             order_number=order_id,
-            total_amount=Decimal(str(total)),
+            total_amount=grand_total,
             status='Pending',
             shipping_address=shipping_address
         )
 
-        for itm in items_data:
-            prod_id = itm.get('id')
-            prod = Product.objects.filter(id=prod_id).first() if prod_id else None
-            qty = max(1, int(itm.get('quantity', 1)))
-            unit_price = Decimal(str(itm.get('price', prod.price if prod else 0)))
-            subtotal = unit_price * qty
-
+        for prod, qty, unit_price, subtotal, stock_obj in validated_items:
             OrderItem.objects.create(
                 order=order,
                 product=prod,
@@ -799,24 +1111,74 @@ def create_order(request):
             )
 
             # Deduct inventory stock in database
-            if prod:
-                stock_obj, _ = Stock.objects.get_or_create(
-                    product=prod,
-                    defaults={'quantity': 25, 'reserved_quantity': 0, 'reorder_level': getattr(prod, 'reorder_level', 5)}
-                )
+            if stock_obj:
                 stock_obj.quantity = max(0, stock_obj.quantity - qty)
-                stock_obj.save()
+                stock_obj.save(update_fields=['quantity'])
 
+        # Clear database cart
+        if user:
+            user_cart = Cart.objects.filter(user=user).first()
+            if user_cart:
+                user_cart.items.all().delete()
+        elif request.session.session_key and request.session.get('cart_id'):
+            session_cart = Cart.objects.filter(id=request.session['cart_id'], user=None).first()
+            if session_cart:
+                session_cart.items.all().delete()
+
+        invalidate_catalog_cache()
+
+    return JsonResponse({
+        'status': 'success',
+        'orderId': order.order_number,
+        'order_number': order.order_number,
+        'order': order.to_dict(),
+        'itemsCount': len(validated_items),
+        'total': float(order.total_amount),
+        'message': f'Order {order.order_number} placed successfully! Thank you for shopping with ITMU e-Haat Nursery.'
+    }, status=201)
+
+
+@require_http_methods(["GET"])
+def customer_order_detail(request, order_number):
+    """
+    Retrieve specific order detail.
+    Customer privacy strictly enforced: Customer A cannot view Customer B's order.
+    """
+    order = Order.objects.filter(order_number=order_number).prefetch_related('items', 'items__product').first()
+    if not order:
+        return JsonResponse({'status': 'error', 'message': f'Order #{order_number} not found.'}, status=404)
+
+    # Admin access
+    if hasattr(request, 'user') and getattr(request.user, 'is_authenticated', False) and _is_admin_user(request.user):
+        return JsonResponse({'status': 'success', 'order': order.to_dict()})
+
+    # Authenticated customer ownership
+    if hasattr(request, 'user') and getattr(request.user, 'is_authenticated', False):
+        if order.customer != request.user:
+            return JsonResponse({
+                'status': 'error',
+                'code': 'FORBIDDEN',
+                'message': 'Access denied. You do not have permission to view this order.'
+            }, status=403)
+        return JsonResponse({'status': 'success', 'order': order.to_dict()})
+
+    # Guest user verification via phone or email query
+    phone = request.GET.get('phone', '').strip()
+    email = request.GET.get('email', '').strip()
+    is_authorized = False
+    if phone and phone in order.shipping_address:
+        is_authorized = True
+    if email and order.customer and order.customer.email.lower() == email.lower():
+        is_authorized = True
+
+    if not is_authorized:
         return JsonResponse({
-            'status': 'success',
-            'orderId': order.order_number,
-            'order': order.to_dict(),
-            'itemsCount': len(items_data),
-            'total': float(order.total_amount),
-            'message': f'Order {order.order_number} placed successfully! Tracking link generated.'
-        }, status=201)
-    except Exception as e:
-        return JsonResponse({'status': 'error', 'message': str(e)}, status=400)
+            'status': 'error',
+            'code': 'FORBIDDEN',
+            'message': 'Access denied. Please provide matching credentials to view this order.'
+        }, status=403)
+
+    return JsonResponse({'status': 'success', 'order': order.to_dict()})
 
 
 @require_http_methods(["GET"])
@@ -1425,8 +1787,8 @@ def verify_otp(request):
 @require_http_methods(["POST"])
 def register_user(request):
     """
-    Create a new account.
-    Expects JSON: { first_name, email, password, phone_number?, username? }
+    Create a new account with required first_name, phone_number (+91 10-digit mobile), email, and password.
+    Enforces server-side validation against duplicate email, duplicate phone number, and assigns Customer role.
     """
     try:
         data = json.loads(request.body.decode('utf-8'))
@@ -1434,14 +1796,33 @@ def register_user(request):
         return JsonResponse({'status': 'error', 'message': 'Invalid JSON payload.'}, status=400)
 
     first_name = str(data.get('first_name', '')).strip()
+    raw_phone = str(data.get('phone_number', '')).strip()
     email = str(data.get('email', '')).strip().lower()
     password = str(data.get('password', ''))
-    raw_phone = str(data.get('phone_number', '')).strip()
     username = str(data.get('username', '')).strip()
 
-    # Validation
+    # 1. Field presence validation
     if not first_name:
         return JsonResponse({'status': 'error', 'message': 'First name is required.'}, status=400)
+
+    if not raw_phone:
+        return JsonResponse({'status': 'error', 'message': 'Phone number is required.'}, status=400)
+
+    # Clean phone digits
+    clean_phone = re.sub(r'\D', '', raw_phone)
+    if len(clean_phone) == 12 and clean_phone.startswith('91'):
+        clean_phone = clean_phone[2:]
+
+    if len(clean_phone) != 10:
+        return JsonResponse({'status': 'error', 'message': 'Please enter a valid 10-digit mobile number.'}, status=400)
+
+    # Check duplicate phone number in UserProfile
+    if UserProfile.objects.filter(phone_number=clean_phone).exists():
+        return JsonResponse({
+            'status': 'error',
+            'code': 'DUPLICATE_PHONE',
+            'message': 'An account with this phone number already exists. Please sign in.'
+        }, status=409)
 
     if not email:
         return JsonResponse({'status': 'error', 'message': 'Email address is required.'}, status=400)
@@ -1452,17 +1833,13 @@ def register_user(request):
     if not password or len(password) < 6:
         return JsonResponse({'status': 'error', 'message': 'Password must be at least 6 characters long.'}, status=400)
 
-    # Check if email is already taken
+    # Check duplicate email
     if User.objects.filter(email__iexact=email).exists():
         return JsonResponse({
             'status': 'error',
+            'code': 'DUPLICATE_EMAIL',
             'message': 'An account with this email address already exists. Please sign in.'
         }, status=409)
-
-    # Clean phone digits
-    clean_phone = re.sub(r'\D', '', raw_phone)
-    if len(clean_phone) == 12 and clean_phone.startswith('91'):
-        clean_phone = clean_phone[2:]
 
     # Generate unique username if not provided
     if not username:
@@ -1487,8 +1864,7 @@ def register_user(request):
 
     # Link profile and customer role
     profile, _ = UserProfile.objects.get_or_create(user=user)
-    if clean_phone:
-        profile.phone_number = clean_phone
+    profile.phone_number = clean_phone
     customer_role = Role.objects.filter(name='Customer').first()
     if customer_role and not profile.role:
         profile.role = customer_role
@@ -1508,32 +1884,41 @@ def register_user(request):
 @require_http_methods(["POST"])
 def login_user(request):
     """
-    Authenticate and log in a user using Email or Username + Password.
-    Expects JSON: { identifier (or username/email), password }
+    Authenticate and log in a user using Email, 10-digit Phone Number, or Username + Password.
+    Expects JSON: { identifier (or username/email/phone), password }
     """
     try:
         data = json.loads(request.body.decode('utf-8'))
     except (json.JSONDecodeError, UnicodeDecodeError):
         return JsonResponse({'status': 'error', 'message': 'Invalid JSON payload.'}, status=400)
 
-    identifier = str(data.get('identifier') or data.get('username') or data.get('email') or '').strip()
+    identifier = str(data.get('identifier') or data.get('username') or data.get('email') or data.get('phone') or '').strip()
     password = str(data.get('password') or '')
 
     if not identifier:
-        return JsonResponse({'status': 'error', 'message': 'Please enter your email or username.'}, status=400)
+        return JsonResponse({'status': 'error', 'message': 'Please enter your email, phone number, or username.'}, status=400)
 
     if not password:
         return JsonResponse({'status': 'error', 'message': 'Please enter your password.'}, status=400)
 
-    # Resolve user by email or username
+    # Check if identifier is phone number
     matched_user = None
-    if '@' in identifier:
-        matched_user = User.objects.filter(email__iexact=identifier).first()
-    else:
-        matched_user = User.objects.filter(username__iexact=identifier).first()
-        if not matched_user:
-            # Fallback in case email was entered without @ (unlikely) or email match
+    clean_id = re.sub(r'\D', '', identifier)
+    if len(clean_id) == 12 and clean_id.startswith('91'):
+        clean_id = clean_id[2:]
+    if len(clean_id) == 10:
+        profile = UserProfile.objects.filter(phone_number=clean_id).select_related('user').first()
+        if profile and profile.user:
+            matched_user = profile.user
+
+    # If not matched by phone, check email
+    if not matched_user:
+        if '@' in identifier:
             matched_user = User.objects.filter(email__iexact=identifier).first()
+        else:
+            matched_user = User.objects.filter(username__iexact=identifier).first()
+            if not matched_user:
+                matched_user = User.objects.filter(email__iexact=identifier).first()
 
     auth_username = matched_user.username if matched_user else identifier
     user = authenticate(request, username=auth_username, password=password)
@@ -1541,7 +1926,7 @@ def login_user(request):
     if user is None:
         return JsonResponse({
             'status': 'error',
-            'message': 'Invalid credentials. Please verify your email/username and password.'
+            'message': 'Invalid credentials. Please verify your email/phone and password.'
         }, status=401)
 
     login(request, user)
@@ -1837,17 +2222,19 @@ def admin_dashboard_stats(request):
     total_categories = Category.objects.count()
     total_customers = User.objects.filter(is_staff=False, is_superuser=False).count()
 
-    # 2. Inventory Health from actual Product records
-    in_stock_count = total_products
-    out_of_stock_count = 0
-    low_stock_count = 0
-    health_percentage = 100.0
+    # 2. Real Inventory Health from actual Stock records in database
+    in_stock_count = Stock.objects.filter(quantity__gt=0).count()
+    out_of_stock_count = Stock.objects.filter(quantity=0).count()
+    low_stock_count = Stock.objects.filter(quantity__gt=0, quantity__lte=F('reorder_level')).count()
+    total_stock_records = Stock.objects.count()
+    health_percentage = round((in_stock_count / total_stock_records * 100), 1) if total_stock_records > 0 else 100.0
 
     # 3. Real Category-wise distribution from Category & Product tables
     cat_distribution = []
-    categories = list(Category.objects.all().order_by('name'))
+    categories = list(Category.objects.annotate(prods_count=Count('products')).order_by('name'))
+    total_categories = len(categories)
     for cat in categories:
-        prods_count = cat.products.count()
+        prods_count = getattr(cat, 'prods_count', 0)
         cat_distribution.append({
             'name': cat.name,
             'total_products': prods_count,
@@ -1902,7 +2289,7 @@ def admin_dashboard_stats(request):
             'tag': p.tag or '',
             'stock_status': 'In Stock' if p.in_stock else 'Out of Stock'
         }
-        for p in Product.objects.all().select_related('category').order_by('-created_at')
+        for p in Product.objects.all().select_related('category').prefetch_related('stocks').order_by('-created_at')
     ]
 
     # 8. Orders and Revenue from real Order table
