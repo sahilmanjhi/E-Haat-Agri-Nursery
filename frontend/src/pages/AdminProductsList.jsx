@@ -25,7 +25,7 @@ import {
   LayoutGrid,
   List as ListIcon
 } from 'lucide-react';
-import AdminLayout from './AdminLayout';
+import AdminLayout from '../components/AdminLayout';
 import {
   fetchAdminProducts,
   fetchCategories,

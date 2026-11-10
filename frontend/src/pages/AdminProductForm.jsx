@@ -21,7 +21,7 @@ import {
   Eye,
   RotateCcw
 } from 'lucide-react';
-import AdminLayout from './AdminLayout';
+import AdminLayout from '../components/AdminLayout';
 import {
   fetchProductDetail,
   createProduct,
@@ -56,6 +56,7 @@ export default function AdminProductForm({ productId, onNavigate, onLogout }) {
     price: '',
     originalPrice: '',
     discount: 0,
+    stockQuantity: 25,
     inStock: true,
     light: 'Bright Indirect Sunlight',
     water: 'Once a week',
@@ -122,6 +123,7 @@ export default function AdminProductForm({ productId, onNavigate, onLogout }) {
               price: p.price !== undefined ? String(p.price) : '',
               originalPrice: p.originalPrice !== undefined ? String(p.originalPrice) : '',
               discount: p.discount || 0,
+              stockQuantity: p.stockQuantity !== undefined ? p.stockQuantity : 25,
               inStock: p.inStock !== undefined ? p.inStock : true,
               light: p.light || 'Bright Indirect Sunlight',
               water: p.water || 'Once a week',
@@ -224,6 +226,7 @@ export default function AdminProductForm({ productId, onNavigate, onLogout }) {
       price: numPrice,
       original_price: formData.originalPrice ? parseFloat(formData.originalPrice) : numPrice,
       discount: parseInt(formData.discount, 10) || 0,
+      stock_quantity: parseInt(formData.stockQuantity, 10) >= 0 ? parseInt(formData.stockQuantity, 10) : (formData.inStock ? 25 : 0),
       in_stock: formData.inStock,
       light: formData.light,
       water: formData.water,
@@ -563,7 +566,28 @@ export default function AdminProductForm({ productId, onNavigate, onLogout }) {
                   </div>
                 </div>
 
-                <div className="itmu-form-grid-2" style={{ marginTop: 18 }}>
+                <div className="itmu-form-grid-3" style={{ marginTop: 18 }}>
+                  {/* Stock Quantity */}
+                  <div className="itmu-field-group">
+                    <label className="itmu-label">Stock Quantity (Units) <span className="itmu-req">*</span></label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="1"
+                      className="itmu-input"
+                      placeholder="20"
+                      value={formData.stockQuantity !== undefined ? formData.stockQuantity : 25}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value, 10);
+                        handleChange('stockQuantity', e.target.value);
+                        if (!isNaN(val)) {
+                          handleChange('inStock', val > 0);
+                        }
+                      }}
+                    />
+                    <small className="itmu-field-hint">Setting to 0 automatically marks item Out of Stock.</small>
+                  </div>
+
                   {/* In Stock Toggle */}
                   <div className="itmu-field-group">
                     <label className="itmu-label">Stock Status</label>

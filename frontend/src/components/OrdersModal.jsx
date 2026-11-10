@@ -83,50 +83,8 @@ export default function OrdersModal({ isOpen, onClose, user, onOpenAuth }) {
       setRefreshing(false);
     }
 
-    // Fallback to localStorage
-    try {
-      const userKey = user?.phone_number || user?.username || 'guest';
-      const raw = localStorage.getItem(`ehaat_orders_${userKey}`);
-      if (raw) {
-        setOrders(JSON.parse(raw));
-        return;
-      }
-    } catch (e) {}
-
-    // Default sample if nothing exists
-    setOrders([
-      {
-        id: 'EHAAT-849201',
-        date: 'Recent Order',
-        status: 'Out for Delivery',
-        statusColor: '#00B566',
-        statusBg: '#EBF5F0',
-        progress: '75%',
-        stepIndex: 3,
-        expectedDelivery: 'Tomorrow by 4:00 PM',
-        total: 1298,
-        items: [
-          {
-            id: 1,
-            name: 'Monstera Deliciosa (Swiss Cheese Plant)',
-            price: 699,
-            quantity: 1,
-            image: '/images/plants/monstera.png',
-            pot: 'Matte White Ceramic Planter'
-          },
-          {
-            id: 2,
-            name: 'ZZ Plant (Zamioculcas Zamiifolia)',
-            price: 599,
-            quantity: 1,
-            image: '/images/plants/zz_plant.png',
-            pot: 'Self-Watering Emerald Pot'
-          }
-        ],
-        deliveryAddress: 'Campus Agri-Hub, ITM University Gwalior, MP - 474001',
-        paymentMethod: 'UPI Verified'
-      }
-    ]);
+    // Database is single source of truth - zero fake orders
+    setOrders([]);
   };
 
   useEffect(() => {

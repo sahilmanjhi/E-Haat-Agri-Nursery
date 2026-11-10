@@ -282,7 +282,7 @@ export default function Header({
       const match = currentPath.match(/^\/collections(?:\/([^\/?#]+))?\/?$/);
       const urlSlug = match ? (match[1] || 'all').toLowerCase() : 'all';
       if (urlSlug === slug) return true;
-      if (slug === 'flowers' && (urlSlug === 'flowers' || urlSlug === 'flowering-plants')) return true;
+      if ((slug === 'flowering-plants' || slug === 'flowers') && (urlSlug === 'flowers' || urlSlug === 'flowering-plants')) return true;
       if (slug === 'fruits-plants' && (urlSlug === 'fruits-plants' || urlSlug === 'outdoor-plants')) return true;
       if (slug === 'vegetables-crops' && (urlSlug === 'vegetables-crops' || urlSlug === 'seeds')) return true;
       return false;
@@ -295,6 +295,16 @@ export default function Header({
       categoryToSlug(activeCategory) === slug
     );
   };
+
+  // Deduplicate navigation categories dynamically by slug to prevent any duplicate tabs
+  const uniqueNavCategories = (categories && categories.length > 0 ? categories : CATEGORIES).reduce((acc, cat) => {
+    const catObj = typeof cat === 'string' ? { id: cat, name: cat } : cat;
+    const slug = categoryToSlug(catObj.name || catObj.id);
+    if (!acc.some(item => categoryToSlug(item.name || item.id) === slug)) {
+      acc.push(catObj);
+    }
+    return acc;
+  }, []);
 
   return (
     <>
@@ -546,7 +556,7 @@ export default function Header({
           <nav className="category-nav" ref={navRef}>
             <div className="container nav-container">
               <ul className="nav-links">
-                {(categories && categories.length > 0 ? categories : CATEGORIES).map(cat => {
+                {uniqueNavCategories.map(cat => {
                   const catObj = typeof cat === 'string' ? { id: cat, name: cat } : cat;
                   const isActive = isCatActive(catObj);
 

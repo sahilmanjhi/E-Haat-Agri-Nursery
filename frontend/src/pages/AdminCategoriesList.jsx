@@ -17,7 +17,7 @@ import {
   FolderPlus,
   Save
 } from 'lucide-react';
-import AdminLayout from './AdminLayout';
+import AdminLayout from '../components/AdminLayout';
 import {
   fetchAdminCategories,
   createCategory,

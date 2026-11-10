@@ -15,14 +15,14 @@ import CustomerReviews from './components/CustomerReviews';
 import PlantDoctorFAQ from './components/PlantDoctorFAQ';
 import Footer from './components/Footer';
 import FloatingWhatsApp from './components/FloatingWhatsApp';
-import AdminLogin from './components/AdminLogin';
-import AdminDashboard from './components/AdminDashboard';
-import AdminProductsList from './components/AdminProductsList';
-import AdminProductForm from './components/AdminProductForm';
-import AdminCategoriesList from './components/AdminCategoriesList';
-import AdminInventory from './components/AdminInventory';
-import AdminOrders from './components/AdminOrders';
-import AdminCustomers from './components/AdminCustomers';
+import AdminLogin from './pages/AdminLogin';
+import AdminDashboard from './pages/AdminDashboard';
+import AdminProductsList from './pages/AdminProductsList';
+import AdminProductForm from './pages/AdminProductForm';
+import AdminCategoriesList from './pages/AdminCategoriesList';
+import AdminInventory from './pages/AdminInventory';
+import AdminOrders from './pages/AdminOrders';
+import AdminCustomers from './pages/AdminCustomers';
 
 
 // 5 Main Landing Sections 
@@ -33,11 +33,11 @@ import OurStory from './components/OurStory';
 import PlantCareSimplified from './components/PlantCareSimplified';
 import PromoBanner from './components/PromoBanner';
 import ProductCollections from './components/ProductCollections';
-import CollectionPage from './components/CollectionPage';
+import CollectionPage from './pages/CollectionPage';
 import { categoryToSlug } from './utils/categoryUtils';
 
 import { PRODUCTS as DEFAULT_PRODUCTS, CATEGORIES as DEFAULT_CATEGORIES } from './data/products';
-import { fetchProducts, fetchCategories, checkBackendHealth, fetchCurrentUser, logoutUser } from './services/api';
+import { fetchProducts, fetchCategories, checkBackendHealth, fetchCurrentUser, logoutUser, fetchCart, addToCart, updateCartItemQuantity, removeCartItem, clearCart } from './services/api';
 
 export default function App() {
   const [products, setProducts] = useState(DEFAULT_PRODUCTS);
@@ -90,12 +90,20 @@ export default function App() {
       const health = await checkBackendHealth();
       setBackendStatus(health);
 
-      const [cats, prods] = await Promise.all([
+      const [cats, prods, cart] = await Promise.all([
         fetchCategories(),
-        fetchProducts()
+        fetchProducts(),
+        fetchCart()
       ]);
-      if (cats && cats.length > 0) setCategories(cats);
-      if (prods && prods.length > 0) setProducts(prods);
+      if (Array.isArray(cats) && cats.length > 0) setCategories(cats);
+      if (Array.isArray(prods)) setProducts(prods);
+      if (cart && Array.isArray(cart.items) && cart.items.length > 0) {
+        setCartItems(cart.items.map(item => ({
+          ...item,
+          cartItemId: item.id,
+          id: item.product_id || item.product,
+        })));
+      }
     } catch (err) {
       console.warn('Backend load error:', err);
     } finally {
@@ -103,30 +111,70 @@ export default function App() {
     }
   };
 
+  // Initial catalog load on mount (no redundant re-fetching on route navigation)
   useEffect(() => {
     loadData();
-  }, [currentPath]);
+  }, []);
 
   // Real-time synchronization listeners:
   // 1. Same-window admin actions (ehaat_data_changed event)
-  // 2. Cross-tab admin actions (storage event on ehaat_data_sync_timestamp)
-  // 3. Tab focus (when switching between admin and customer storefront)
-  // 4. Background polling heartbeat (every 8 seconds)
+  // 2. Cross-tab BroadcastChannel instant sync (ehaat_sync channel)
+  // 3. Cross-tab localStorage fallback (storage event)
+  // 4. Tab focus when window regains visibility
+  // 5. Active heartbeat polling (every 4 seconds when tab is active)
   useEffect(() => {
-    const handleDataSync = () => {
-      loadData();
+    let debounceTimer = null;
+    const triggerSync = () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        loadData();
+      }, 150);
     };
 
-    window.addEventListener('ehaat_data_changed', handleDataSync);
-    window.addEventListener('focus', handleDataSync);
-    window.addEventListener('storage', handleDataSync);
+    const handleVisibilitySync = () => {
+      if (!document.hidden) {
+        triggerSync();
+      }
+    };
 
-    const syncInterval = setInterval(handleDataSync, 8000);
+    // BroadcastChannel for instant zero-latency cross-tab sync
+    let channel = null;
+    try {
+      if (typeof BroadcastChannel !== 'undefined') {
+        channel = new BroadcastChannel('ehaat_sync');
+        channel.onmessage = (msg) => {
+          if (msg && msg.data && msg.data.type === 'DATA_CHANGED') {
+            triggerSync();
+          }
+        };
+      }
+    } catch (e) {}
+
+    const handleStorageChange = (e) => {
+      if (!e.key || e.key === 'ehaat_data_sync_timestamp') {
+        triggerSync();
+      }
+    };
+
+    window.addEventListener('ehaat_data_changed', triggerSync);
+    window.addEventListener('focus', handleVisibilitySync);
+    window.addEventListener('storage', handleStorageChange);
+
+    // 4-second active heartbeat polling when window is focused
+    const syncInterval = setInterval(() => {
+      if (!document.hidden) {
+        triggerSync();
+      }
+    }, 4000);
 
     return () => {
-      window.removeEventListener('ehaat_data_changed', handleDataSync);
-      window.removeEventListener('focus', handleDataSync);
-      window.removeEventListener('storage', handleDataSync);
+      if (debounceTimer) clearTimeout(debounceTimer);
+      if (channel) {
+        try { channel.close(); } catch (e) {}
+      }
+      window.removeEventListener('ehaat_data_changed', triggerSync);
+      window.removeEventListener('focus', handleVisibilitySync);
+      window.removeEventListener('storage', handleStorageChange);
       clearInterval(syncInterval);
     };
   }, []);
@@ -144,7 +192,18 @@ export default function App() {
   };
 
   // Cart operations
-  const handleAddToCart = (product, pot = null, size = null, qty = 1) => {
+  const handleAddToCart = async (product, pot = null, size = null, qty = 1) => {
+    const prodId = product.rawId || product.id;
+    if (prodId) {
+      try {
+        const res = await addToCart(prodId, qty);
+        if (res && res.status === 'error') {
+          alert(res.message || 'Cannot add item to cart: insufficient stock.');
+          return;
+        }
+      } catch (e) {}
+    }
+
     const existingIdx = cartItems.findIndex(
       item => item.id === product.id && item.selectedPot?.id === pot?.id && item.selectedSize === size
     );
@@ -169,6 +228,9 @@ export default function App() {
   };
 
   const handleUpdateCartQty = (item, newQty) => {
+    if (item.cartItemId) {
+      updateCartItemQuantity(item.cartItemId, newQty).catch(() => {});
+    }
     if (newQty <= 0) {
       setCartItems(cartItems.filter(i => i !== item));
     } else {
@@ -177,6 +239,9 @@ export default function App() {
   };
 
   const handleRemoveCartItem = (item) => {
+    if (item.cartItemId) {
+      removeCartItem(item.cartItemId).catch(() => {});
+    }
     setCartItems(cartItems.filter(i => i !== item));
   };
 
@@ -415,7 +480,7 @@ export default function App() {
       <HeroBanner onExploreCategory={(cat) => navigate('/collections/' + categoryToSlug(cat))} />
 
       {/* 3. Shop by Category (6 photo cards) */}
-      <CategoryCircles onSelectCategory={(cat) => navigate('/collections/' + categoryToSlug(cat))} />
+      <CategoryCircles categories={categories} onSelectCategory={(cat) => navigate('/collections/' + categoryToSlug(cat))} />
 
       {/* 4. Promotional Banners */}
       <PromoBanner onExploreCategory={(cat) => navigate('/collections/' + categoryToSlug(cat))} />
@@ -629,6 +694,7 @@ export default function App() {
         onOrderSuccess={() => {
           setCartItems([]);
           setCheckoutSummary(null);
+          clearCart().catch(() => {});
         }}
         user={currentUser}
       />

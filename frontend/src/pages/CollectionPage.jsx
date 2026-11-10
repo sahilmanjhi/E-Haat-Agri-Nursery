@@ -1,5 +1,5 @@
-import React, { useState, useMemo } from 'react';
-import ProductCard from './ProductCard';
+import React, { useState, useMemo, useEffect } from 'react';
+import ProductCard from '../components/ProductCard';
 import { 
   ChevronRight, 
   Home, 
@@ -13,7 +13,7 @@ import {
   CheckCircle2,
   PackageCheck
 } from 'lucide-react';
-import { categoryToSlug, getCategoryMeta, STANDARD_CATEGORIES } from '../utils/categoryUtils';
+import { categoryToSlug, getCategoryMeta } from '../utils/categoryUtils';
 
 export default function CollectionPage({
   categorySlug = 'all',
@@ -30,21 +30,32 @@ export default function CollectionPage({
   const [sortBy, setSortBy] = useState('popular');
   const [subFilter, setSubFilter] = useState('all');
 
-  // 1. Resolve Category Metadata
+  // 1. Resolve Category Metadata first
   const categoryMeta = useMemo(() => {
     return getCategoryMeta(categorySlug, categories);
   }, [categorySlug, categories]);
 
-  // 2. Prepare Navigation Categories Tabs
+  // 2. Automatically reset sub-filter and canonicalize legacy/alias URLs (e.g. /collections/flowers -> /collections/flowering-plants)
+  useEffect(() => {
+    setSubFilter('all');
+    if (categorySlug === 'flowers' || (categoryMeta && categoryMeta.slug && categorySlug !== categoryMeta.slug)) {
+      window.history.replaceState(null, '', /collections/);
+    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [categorySlug, categoryMeta?.slug]);
+
+  // 2. Prepare Navigation Categories Tabs dynamically from database categories
   const navTabs = useMemo(() => {
-    const list = [...STANDARD_CATEGORIES];
+    const list = [{ id: 'all', name: 'All Products', slug: 'all' }];
     if (categories && categories.length > 0) {
       categories.forEach(c => {
         const cName = typeof c === 'string' ? c : (c.name || c.id || '');
+        if (!cName) return;
         const slug = categoryToSlug(cName);
+        if (slug === 'all') return;
         if (!list.some(item => item.slug === slug)) {
           list.push({
-            id: cName,
+            id: typeof c === 'object' && c.id ? c.id : cName,
             name: cName,
             slug
           });

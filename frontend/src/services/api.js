@@ -1,16 +1,34 @@
 import { PRODUCTS as FALLBACK_PRODUCTS, CATEGORIES as FALLBACK_CATEGORIES } from '../data/products';
 
 const API_BASE = '/api';
+
+// Cross-tab broadcast channel for instantaneous zero-latency synchronization
+const syncChannel = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('ehaat_sync') : null;
+
 /**
  * Broadcast notification that backend database state has changed,
  * so the customer website and all open tabs immediately reload live data.
  */
 export function notifyDataChanged() {
+  // Clear any in-flight promises so next call immediately gets fresh database records
+  inFlightCategoriesPromise = null;
+  inFlightProductsPromise = null;
+
   if (typeof window !== 'undefined') {
+    // 1. Same-window listeners
     window.dispatchEvent(new CustomEvent('ehaat_data_changed'));
+
+    // 2. Cross-tab localStorage fallback
     try {
       localStorage.setItem('ehaat_data_sync_timestamp', Date.now().toString());
     } catch (e) {}
+
+    // 3. Instant BroadcastChannel notification across all open tabs
+    if (syncChannel) {
+      try {
+        syncChannel.postMessage({ type: 'DATA_CHANGED', timestamp: Date.now() });
+      } catch (e) {}
+    }
   }
 }
 
@@ -18,12 +36,16 @@ export function notifyDataChanged() {
 /**
  * Health check: verify if the Django backend is online and responding.
  */
+// Request deduplication cache for concurrent in-flight calls
+let inFlightCategoriesPromise = null;
+let inFlightProductsPromise = null;
+
 export async function checkBackendHealth() {
   try {
     const res = await fetch(`${API_BASE}/health/`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const result = await res.json();
-    notifyDataChanged();
+    // Do NOT notifyDataChanged on a simple health probe to avoid infinite sync cascades
     return result;
   } catch (err) {
     console.warn('[Backend] Health check failed, falling back to local mode:', err.message);
@@ -32,45 +54,78 @@ export async function checkBackendHealth() {
 }
 
 /**
- * Fetch categories from Django backend (with local fallback).
+ * Fetch categories from Django backend (with local fallback and in-flight deduplication).
  */
 export async function fetchCategories() {
-  try {
-    const res = await fetch(`${API_BASE}/categories/`);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
-    if (data.categories && data.categories.length > 0) {
-      // Include 'all' category at the beginning
-      return [{ id: 'all', name: 'All Products' }, ...data.categories];
-    }
-  } catch (err) {
-    console.warn('[Backend] Categories fetch failed, using fallback:', err.message);
+  if (inFlightCategoriesPromise) {
+    return inFlightCategoriesPromise;
   }
-  return FALLBACK_CATEGORIES;
+
+  inFlightCategoriesPromise = (async () => {
+    try {
+      const res = await fetch(`${API_BASE}/categories/`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      if (data.categories && Array.isArray(data.categories)) {
+        // Include 'all' category at the beginning
+        return [{ id: 'all', name: 'All Products' }, ...data.categories];
+      }
+    } catch (err) {
+      console.warn('[Backend] Categories fetch failed, using fallback:', err.message);
+    } finally {
+      inFlightCategoriesPromise = null;
+    }
+    return FALLBACK_CATEGORIES;
+  })();
+
+  return inFlightCategoriesPromise;
 }
 
 /**
- * Fetch products from Django backend with query filters (with local fallback).
+ * Fetch products from Django backend with query filters (with in-flight deduplication for default catalog).
  */
 export async function fetchProducts({ category = 'all', room = 'all', sort = 'popular', search = '' } = {}) {
-  try {
-    const params = new URLSearchParams();
-    if (category && category !== 'all') params.append('category', category);
-    if (room && room !== 'all') params.append('room', room);
-    if (sort) params.append('sort', sort);
-    if (search) params.append('search', search);
+  const isDefaultQuery = (!category || category === 'all') && (!room || room === 'all') && (!search) && (sort === 'popular' || !sort);
 
-    const res = await fetch(`${API_BASE}/products/?${params.toString()}`);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
-    if (data.products && data.products.length > 0) {
-      return data.products;
-    }
-  } catch (err) {
-    console.warn('[Backend] Products fetch failed, using fallback:', err.message);
+  if (isDefaultQuery && inFlightProductsPromise) {
+    return inFlightProductsPromise;
   }
 
-  // Filter fallback products locally
+  const queryTask = (async () => {
+    try {
+      const params = new URLSearchParams();
+      if (category && category !== 'all') params.append('category', category);
+      if (room && room !== 'all') params.append('room', room);
+      if (sort) params.append('sort', sort);
+      if (search) params.append('search', search);
+
+      const res = await fetch(`${API_BASE}/products/?${params.toString()}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      if (data.products && Array.isArray(data.products)) {
+        return data.products;
+      }
+    } catch (err) {
+      console.warn('[Backend] Products fetch failed, using fallback:', err.message);
+    } finally {
+      if (isDefaultQuery) {
+        inFlightProductsPromise = null;
+      }
+    }
+    return getLocalFallbackProducts({ category, room, search });
+  })();
+
+  if (isDefaultQuery) {
+    inFlightProductsPromise = queryTask;
+  }
+
+  return queryTask;
+}
+
+/**
+ * Filter fallback products locally when backend is unreachable
+ */
+function getLocalFallbackProducts({ category = 'all', room = 'all', search = '' } = {}) {
   let filtered = [...FALLBACK_PRODUCTS];
   if (category && category !== 'all') {
     filtered = filtered.filter(p => p.category.toLowerCase() === category.toLowerCase());
@@ -134,27 +189,116 @@ export async function submitOrder(orderData) {
     const res = await fetch(`${API_BASE}/orders/`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
       body: JSON.stringify(orderData)
     });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const result = await res.json();
+    const result = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      return {
+        status: 'error',
+        message: result.message || `Order submission failed (HTTP ${res.status}).`
+      };
+    }
     notifyDataChanged();
     return result;
   } catch (err) {
-    console.warn('[Backend] Order submission fallback:', err.message);
+    console.error('[Backend] Order submission error:', err);
     return {
-      status: 'success',
-      orderId: `LOCAL-${Date.now().toString(36).toUpperCase()}`,
-      message: 'Order processed (local simulation mode).'
+      status: 'error',
+      message: 'Network error. Unable to connect to order server.'
     };
   }
 }
 
+// ---------------------------------------------------------------------------
+//  Cart API helpers (Database-backed Cart & CartItem models)
+// ---------------------------------------------------------------------------
+
+export async function fetchCart() {
+  try {
+    const res = await fetch(`${API_BASE}/cart/`, {
+      credentials: 'include'
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.cart || null;
+  } catch (err) {
+    console.warn('[Cart] fetchCart error:', err.message);
+    return null;
+  }
+}
+
+export async function addToCart(productId, quantity = 1) {
+  try {
+    const res = await fetch(`${API_BASE}/cart/items/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ product_id: productId, quantity })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      return { status: 'error', message: data.message || `Failed to add item (HTTP ${res.status})` };
+    }
+    notifyDataChanged();
+    return data;
+  } catch (err) {
+    return { status: 'error', message: 'Unable to connect to cart service.' };
+  }
+}
+
+export async function updateCartItemQuantity(itemId, quantity) {
+  try {
+    const res = await fetch(`${API_BASE}/cart/items/${itemId}/`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ quantity })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      return { status: 'error', message: data.message || `Failed to update item (HTTP ${res.status})` };
+    }
+    notifyDataChanged();
+    return data;
+  } catch (err) {
+    return { status: 'error', message: 'Unable to connect to cart service.' };
+  }
+}
+
+export async function removeCartItem(itemId) {
+  try {
+    const res = await fetch(`${API_BASE}/cart/items/${itemId}/`, {
+      method: 'DELETE',
+      credentials: 'include'
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      return { status: 'error', message: data.message || `Failed to remove item (HTTP ${res.status})` };
+    }
+    notifyDataChanged();
+    return data;
+  } catch (err) {
+    return { status: 'error', message: 'Unable to connect to cart service.' };
+  }
+}
+
+export async function clearCart() {
+  try {
+    const res = await fetch(`${API_BASE}/cart/clear/`, {
+      method: 'POST',
+      credentials: 'include'
+    });
+    const data = await res.json().catch(() => ({}));
+    notifyDataChanged();
+    return data;
+  } catch (err) {
+    return { status: 'error', message: 'Unable to connect to cart service.' };
+  }
+}
 
 // ---------------------------------------------------------------------------
-//  Authentication API helpers
-// ---------------------------------------------------------------------------
-//  Authentication API helpers (Email + Password, Register, Reset, Session)
+//  //  Authentication API helpers
 // ---------------------------------------------------------------------------
 
 /**
@@ -619,6 +763,7 @@ export async function createCategory({ name, description }) {
         message: data.message || 'Failed to create category.'
       };
     }
+    notifyDataChanged();
     return data;
   } catch (err) {
     return {
@@ -732,6 +877,7 @@ export async function updateInventoryStock(id, payload = {}) {
         message: data.message || 'Failed to update inventory stock.'
       };
     }
+    notifyDataChanged();
     return data;
   } catch (err) {
     return {
@@ -762,6 +908,7 @@ export async function batchRestockInventory(payload = {}) {
         message: data.message || 'Failed to execute batch restock.'
       };
     }
+    notifyDataChanged();
     return data;
   } catch (err) {
     return {

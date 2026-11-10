@@ -1,3 +1,4 @@
+import { fetchProductDetail } from '../services/api';
 import React, { useState, useEffect } from 'react';
 import { X, Star, Sun, Droplets, ShieldCheck, Heart, ShoppingBag, Truck, Award, Check, Lock } from 'lucide-react';
 
@@ -23,6 +24,19 @@ export default function ProductQuickViewModal({
     product.sizeOptions ? product.sizeOptions[0] : null
   );
   const [quantity, setQuantity] = useState(1);
+  const [liveProduct, setLiveProduct] = useState(product);
+
+  useEffect(() => {
+    setLiveProduct(product);
+    if (product) {
+      const pid = product.rawId || product.id;
+      if (pid) {
+        fetchProductDetail(pid).then(res => {
+          if (res) setLiveProduct(prev => ({ ...prev, ...res }));
+        }).catch(() => {});
+      }
+    }
+  }, [product]);
   const [selectedImage, setSelectedImage] = useState(galleryImages[0] || product.image);
   const [isFading, setIsFading] = useState(false);
 
@@ -158,6 +172,19 @@ export default function ProductQuickViewModal({
               )}
             </div>
 
+            {/* Stock Availability */}
+            <div style={{ marginBottom: '14px' }}>
+              {(!product.inStock || product.stockQuantity <= 0 || product.stockStatus === 'Out of Stock') ? (
+                <span style={{ fontSize: '0.8rem', fontWeight: '700', color: '#DC2626', background: '#FEE2E2', padding: '4px 12px', borderRadius: '20px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                  ✕ Out of Stock
+                </span>
+              ) : (
+                <span style={{ fontSize: '0.8rem', fontWeight: '700', color: '#064E35', background: '#E8F5E9', padding: '4px 12px', borderRadius: '20px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                  ✓ In Stock ({product.stockQuantity !== undefined ? `${product.stockQuantity} units available` : 'Available'})
+                </span>
+              )}
+            </div>
+
             {/* Pot Options */}
             {product.potOptions && (
               <div style={{ marginBottom: '16px' }}>
@@ -247,17 +274,27 @@ export default function ProductQuickViewModal({
                 </button>
               </div>
 
-              <button 
-                className="btn-primary" 
-                style={{ flex: 1, justifyContent: 'center' }}
-                onClick={() => {
-                  onAddToCart(product, selectedPot, selectedSize, quantity);
-                  onClose();
-                }}
-              >
-                <ShoppingBag size={18} />
-                <span>Add {quantity} to Cart • ₹{totalPrice}</span>
-              </button>
+              {(!product.inStock || product.stockQuantity <= 0 || product.stockStatus === 'Out of Stock') ? (
+                <button 
+                  className="btn-primary" 
+                  style={{ flex: 1, justifyContent: 'center', backgroundColor: '#94A3B8', cursor: 'not-allowed' }}
+                  disabled
+                >
+                  <span>Out of Stock</span>
+                </button>
+              ) : (
+                <button 
+                  className="btn-primary" 
+                  style={{ flex: 1, justifyContent: 'center' }}
+                  onClick={() => {
+                    onAddToCart(product, selectedPot, selectedSize, quantity);
+                    onClose();
+                  }}
+                >
+                  <ShoppingBag size={18} />
+                  <span>Add {quantity} to Cart • ₹{totalPrice}</span>
+                </button>
+              )}
 
               <button 
                 className="wishlist-btn" 

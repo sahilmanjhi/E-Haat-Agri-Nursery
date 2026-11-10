@@ -25,7 +25,7 @@ import {
   MoreVertical,
   Check
 } from 'lucide-react';
-import AdminLayout from './AdminLayout';
+import AdminLayout from '../components/AdminLayout';
 import {
   fetchAdminCustomers,
   fetchAdminCustomerDetail,

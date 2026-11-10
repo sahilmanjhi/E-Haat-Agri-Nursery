@@ -25,6 +25,7 @@ export default function CheckoutModal({
 
   const [orderId, setOrderId] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
 
   if (!isOpen) return null;
 
@@ -35,58 +36,40 @@ export default function CheckoutModal({
 
   const handlePlaceOrder = async (e) => {
     e.preventDefault();
+    setErrorMessage('');
     setIsSubmitting(true);
-    let createdOrderId = 'EHAAT-' + Math.floor(100000 + Math.random() * 900000);
     try {
       const res = await submitOrder({
         customer: formData,
         items: cartItems,
         total: summary?.finalTotal || 0,
       });
-      if (res.orderId) createdOrderId = res.orderId;
+
+      if (res && res.status === 'error') {
+        setErrorMessage(res.message || 'Order could not be placed. Please check inventory stock.');
+        setIsSubmitting(false);
+        return;
+      }
+
+      const createdOrderId = res.orderId || res.order_number || 'EHAAT-DONE';
       setOrderId(createdOrderId);
+      setStep(3);
+
+      // Trigger confetti celebration!
+      confetti({
+        particleCount: 100,
+        spread: 70,
+        origin: { y: 0.6 }
+      });
+
+      if (onOrderSuccess) {
+        onOrderSuccess(createdOrderId);
+      }
     } catch (err) {
-      setOrderId(createdOrderId);
+      setErrorMessage(err.message || 'Unable to place order. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
-
-    // Persist placed order to user's order history
-    try {
-      const userKey = user?.phone_number || user?.username || formData.phone || 'guest';
-      const existing = JSON.parse(localStorage.getItem(`ehaat_orders_${userKey}`) || '[]');
-      const newOrderRecord = {
-        id: createdOrderId,
-        date: 'Today, ' + new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }),
-        status: 'Order Placed',
-        statusColor: '#00B566',
-        statusBg: '#EBF5F0',
-        expectedDelivery: 'In 2-3 Days',
-        total: summary?.grandTotal || summary?.finalTotal || 0,
-        items: cartItems.map(item => ({
-          id: item.id,
-          name: item.name,
-          price: item.price,
-          quantity: item.quantity,
-          image: item.image,
-          pot: item.selectedPot?.name || ''
-        })),
-        deliveryAddress: `${formData.address}, ${formData.city}`,
-        paymentMethod: formData.paymentMethod.toUpperCase()
-      };
-      localStorage.setItem(`ehaat_orders_${userKey}`, JSON.stringify([newOrderRecord, ...existing]));
-    } catch (e) {}
-
-    setStep(3);
-
-    // Trigger confetti celebration!
-    confetti({
-      particleCount: 100,
-      spread: 70,
-      origin: { y: 0.6 }
-    });
-
-    onOrderSuccess();
   };
 
   return (
@@ -373,7 +356,21 @@ export default function CheckoutModal({
               </div>
             </div>
 
-            <button className="btn-primary" onClick={onClose} style={{ margin: '0 auto' }}>
+            {errorMessage && (
+                <div style={{
+                  color: '#DC2626',
+                  backgroundColor: '#FEE2E2',
+                  border: '1px solid #FCA5A5',
+                  padding: '10px 14px',
+                  borderRadius: '8px',
+                  marginBottom: '14px',
+                  fontSize: '0.88rem',
+                  fontWeight: '600'
+                }}>
+                  ⚠️ {errorMessage}
+                </div>
+              )}
+              <button className="btn-primary" onClick={onClose} style={{ margin: '0 auto' }}>
               Continue Shopping
             </button>
           </div>

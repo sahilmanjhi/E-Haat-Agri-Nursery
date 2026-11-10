@@ -13,7 +13,11 @@ export default function ProductCard({
   return (
     <div className="product-card">
       {/* Badges & Wishlist */}
-      {product.tag && <div className="card-badge">{product.tag}</div>}
+      {(!product.inStock || product.stockQuantity <= 0 || product.stockStatus === 'Out of Stock') ? (
+        <div className="card-badge" style={{ backgroundColor: '#DC2626', color: '#FFFFFF' }}>Out of Stock</div>
+      ) : (
+        product.tag && <div className="card-badge">{product.tag}</div>
+      )}
 
       <button 
         className={`wishlist-btn ${isWishlisted ? 'active' : ''}`}
@@ -122,14 +126,25 @@ export default function ProductCard({
             )}
           </div>
 
-          <button 
-            className="add-cart-btn"
-            onClick={() => onAddToCart(product, product.potOptions ? product.potOptions[0] : null)}
-            title="Add to Cart"
-          >
-            <ShoppingBag size={16} />
-            <span>Add</span>
-          </button>
+          {(!product.inStock || product.stockQuantity <= 0 || product.stockStatus === 'Out of Stock') ? (
+            <button 
+              className="add-cart-btn disabled"
+              disabled
+              style={{ backgroundColor: '#94A3B8', cursor: 'not-allowed', color: '#FFFFFF' }}
+              title="Currently Out of Stock"
+            >
+              <span>Sold Out</span>
+            </button>
+          ) : (
+            <button 
+              className="add-cart-btn"
+              onClick={() => onAddToCart(product, product.potOptions ? product.potOptions[0] : null)}
+              title="Add to Cart"
+            >
+              <ShoppingBag size={16} />
+              <span>Add</span>
+            </button>
+          )}
         </div>
       </div>
     </div>

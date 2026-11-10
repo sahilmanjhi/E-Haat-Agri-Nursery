@@ -404,7 +404,14 @@ export const PRODUCTS = [
 export const CATEGORIES = [
   { id: "all", name: "All Products" },
   { id: "Indoor Plants", name: "Indoor Plants" },
-  { id: "Flowers", name: "Flowers" },
+  {
+    id: "Flowering Plants",
+    name: "Flowering Plants"
+  },
+  {
+    id: "Plant Care",
+    name: "Plant Care"
+  },
   { id: "Fruits Plants", name: "Fruits Plants" },
   { id: "Vegetables Crops", name: "Vegetables Crops" }
 ];
@@ -417,8 +424,8 @@ export const CATEGORY_CIRCLES = [
     img: "/images/categories/indoor_plants.jpg"
   },
   {
-    id: "Flowers",
-    label: "Flowers",
+    id: "Flowering Plants",
+    label: "Flowering Plants",
     badge: "Fresh Blooms",
     img: "/images/plants/peace_lily.png"
   },
